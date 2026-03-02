@@ -6,15 +6,22 @@ const fs = require('fs');
 const path = require('path');
 
 // Configuración de DB usando Cloud SQL Proxy
+const dbHost = process.env.DB_HOST || 'localhost';
+const isCloudSQL = dbHost.startsWith('/cloudsql/');
+
 const config = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
+  host: dbHost,
   database: process.env.DB_NAME || 'BD_afirma',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'password',
   ssl: false,
   connectionTimeoutMillis: 15000
 };
+
+// Solo agregar puerto si NO es Cloud SQL Unix socket
+if (!isCloudSQL) {
+  config.port = process.env.DB_PORT || 5432;
+}
 
 const migrations = [
   // Tablas base y empleados
@@ -84,8 +91,12 @@ const migrations = [
 
 async function runMigrations() {
   console.log('🔄 Ejecutando migraciones al inicio del contenedor...');
-  console.log('📍 DB Host:', config.host);
+  console.log('📍 Modo:', isCloudSQL ? 'Cloud SQL Unix Socket' : 'TCP/IP');
+  console.log('📍 Host:', config.host);
   console.log('📍 Database:', config.database);
+  if (!isCloudSQL) {
+    console.log('📍 Port:', config.port);
+  }
 
   const pool = new Pool(config);
   let appliedCount = 0;

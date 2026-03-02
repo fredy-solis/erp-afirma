@@ -3,10 +3,15 @@ const { Pool } = require('pg');
 console.log('🔧 Iniciando configuración de base de datos...');
 console.log('🌍 NODE_ENV:', process.env.NODE_ENV);
 
-// Configuración base para desarrollo local
+// Detectar si estamos usando Cloud SQL Unix socket
+const dbHost = process.env.DB_HOST || 'localhost';
+const isCloudSQL = dbHost.startsWith('/cloudsql/');
+
+console.log('📡 Modo de conexión:', isCloudSQL ? 'Cloud SQL Unix Socket' : 'TCP/IP');
+
+// Configuración base
 let dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
+  host: dbHost,
   database: process.env.DB_NAME || 'BD_afirma',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'admin',
@@ -16,13 +21,19 @@ let dbConfig = {
   max: 10
 };
 
+// Solo agregar puerto si NO es Cloud SQL Unix socket
+if (!isCloudSQL) {
+  dbConfig.port = process.env.DB_PORT || 5432;
+}
+
 console.log('📊 Configuración final:', {
   user: dbConfig.user,
   host: dbConfig.host,
   database: dbConfig.database,
-  port: dbConfig.port,
+  port: dbConfig.port || 'Unix socket',
   ssl: dbConfig.ssl ? 'enabled' : 'disabled',
-  password: dbConfig.password ? 'configured' : 'no password'
+  password: dbConfig.password ? 'configured' : 'no password',
+  connectionMode: isCloudSQL ? 'Cloud SQL Unix Socket' : 'TCP/IP'
 });
 
 const pool = new Pool(dbConfig);
