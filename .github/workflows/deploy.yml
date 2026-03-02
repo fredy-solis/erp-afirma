@@ -66,7 +66,7 @@ jobs:
           --region $REGION \
           --allow-unauthenticated \
           --add-cloudsql-instances $PROJECT_ID:$REGION:erp-afirma-db \
-          --set-env-vars NODE_ENV=production,DB_HOST=/cloudsql/$PROJECT_ID:$REGION:erp-afirma-db,DB_NAME=BD_afirma,DB_USER=postgres,DB_PASSWORD=afirma2025,DB_PORT=5432 \
+          --set-env-vars NODE_ENV=production,DB_HOST=/cloudsql/$PROJECT_ID:$REGION:erp-afirma-db,DB_NAME=BD_afirma,DB_USER=postgres,DB_PASSWORD=afirma2025 \
           --memory 512Mi \
           --cpu 1 \
           --max-instances 10 \
@@ -79,15 +79,9 @@ jobs:
         URL=$(gcloud run services describe $SERVICE_NAME --region=$REGION --format='value(status.url)')
         echo "✅ Deployed to: $URL"
         echo "deployment_url=$URL" >> $GITHUB_OUTPUT
-        sleep 10
-        curl -f $URL/api/health || echo "⚠️ Health check failed"
-
-    - name: Run Database Migrations
-      run: |
-        echo "🔄 Running database migrations..."
-        npm install pg
-        node run-migrations-ci.js
-        echo "✅ Migrations completed"
+        echo "⏳ Waiting for service to initialize (including migrations)..."
+        sleep 15
+        curl -f $URL/api/health || echo "⚠️ Health check pending, service may still be initializing"
 
     - name: Deployment Summary
       run: |
