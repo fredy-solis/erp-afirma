@@ -1,7 +1,7 @@
 -- Tabla de Órdenes de Trabajo (OT) para proyectos
+-- Nota: La relación con proyectos es M:N, se maneja en project_ot_relations (migración 029)
 CREATE TABLE IF NOT EXISTS orders_of_work (
     id SERIAL PRIMARY KEY,
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
     ot_code VARCHAR(50) NOT NULL,
     description TEXT,
     status VARCHAR(50) DEFAULT 'Pendiente',
@@ -11,4 +11,6 @@ CREATE TABLE IF NOT EXISTS orders_of_work (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX IF NOT EXISTS idx_orders_of_work_project_id ON orders_of_work(project_id);
+-- Índice para búsqueda rápida por código OT
+CREATE INDEX IF NOT EXISTS idx_orders_of_work_ot_code ON orders_of_work(ot_code);
+CREATE INDEX IF NOT EXISTS idx_orders_of_work_status ON orders_of_work(status);

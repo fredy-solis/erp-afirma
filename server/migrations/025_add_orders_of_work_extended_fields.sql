@@ -53,5 +53,5 @@ COMMENT ON COLUMN orders_of_work.ot_code IS 'Número de OT único';
 COMMENT ON COLUMN orders_of_work.folio_principal_santec IS 'Folio Principal Santec';
 COMMENT ON COLUMN orders_of_work.folio_santec IS 'Folio Santec';
 COMMENT ON COLUMN orders_of_work.nombre_proyecto IS 'Nombre del proyecto (referencia textual)';
-COMMENT ON COLUMN orders_of_work.project_id IS 'ID del proyecto al que pertenece esta OT';
+-- project_id removed - using M:N relationship via project_ot_relations table
 COMMENT ON COLUMN orders_of_work.porcentaje_ejecucion IS 'Porcentaje de ejecución de la OT (0-100)';

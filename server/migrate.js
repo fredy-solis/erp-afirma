@@ -29,10 +29,13 @@ async function runMigrations() {
       '018_update_employee_vacations.sql',
       '019_create_projects.sql',
       '020_create_project_assignments.sql',
-      '021_fix_candidates_nullable.sql',
+      '021_fix_candidates_nullable.sql',          // Primero arreglar nullables
+      '023_add_recruitment_tracking.sql',         // Agregar recruited_by, hired_date
+      '025_add_cv_url_to_candidates.sql',         // Agregar cv_url
       '021_create_project_indexes.sql',
       '022_create_project_assignment_indexes.sql',
       '023_create_authentication_tables.sql',
+      '024_create_job_openings.sql',
       '024_create_orders_of_work.sql',
       '025_add_orders_of_work_extended_fields.sql',
       '026_add_rate_to_project_assignments.sql',
@@ -44,7 +47,10 @@ async function runMigrations() {
       '032_add_costo_ot_to_orders_of_work.sql',
       '033_fix_null_costo_ot.sql',
       '034_add_ot_id_to_project_assignments.sql',
-      '035_create_licitaciones.sql'
+      '035_create_licitaciones.sql',
+      '036_create_commercial_contacts.sql',
+      '037_add_celula_area_file_to_job_openings.sql',
+      '038_add_salary_expectation_to_candidates.sql'
     ];
 
     for (const migration of migrations) {
