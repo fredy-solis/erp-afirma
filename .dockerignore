@@ -69,3 +69,204 @@ cloudbuild*.yaml
 service.yaml
 app.yaml
 Procfile
+# ============================================
+# .dockerignore - Excluir archivos innecesarios en builds Docker
+# ============================================
+
+# Node.js
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDEs y editores
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Logs
+logs
+*.log
+
+# Environment files (se configuran en runtime)
+.env
+.env.*
+
+# ============================================
+# SCRIPTS DE DESARROLLO (NO NECESARIOS EN PRODUCCIÓN)
+# ============================================
+
+# Scripts de diagnóstico y testing
+check-*.js
+test-*.js
+diagnostico.js
+debug-*.js
+validate-*.js
+simple-*.js
+
+# Scripts de setup y configuración
+create-*.js
+setup-*.js
+fix-*.js
+apply-*.js
+distribute-*.js
+grant-*.sql
+recreate-*.sql
+
+# Archivos temporales
+temp-*.js
+temp-*.sql
+*-password.js
+
+# ============================================
+# DOCUMENTACIÓN (NO NECESARIA EN IMAGEN)
+# ============================================
+
+*.md
+!README.md
+ANALISIS_*.md
+CONFIRMACION-*.md
+DEPLOYMENT.md
+DESPLIEGUE*.md
+DOCUMENTACION*.md
+ESTADO-*.md
+GOOGLE-CLOUD-DEPLOY.md
+IMPLEMENTACION_*.md
+NORMALIZATION_REPORT.md
+PLAN_*.md
+PROJECT_*.md
+QUICK_START.md
+REFERENCIA-*.md
+RESUMEN-*.md
+SCRIPTS-*.md
+SETUP_GUIDE.md
+TECNOLOGIAS.md
+
+# ============================================
+# SCRIPTS DE DESPLIEGUE LOCAL (NO NECESARIOS)
+# ============================================
+
+# Windows scripts
+*.bat
+*.ps1
+start-*.ps1
+deploy-*.bat
+setup-*.bat
+inicio*.bat
+stop-*.ps1
+cleanup-*.ps1
+
+# Unix scripts
+*.sh
+deploy-*.sh
+setup-*.sh
+
+# ============================================
+# CONFIGURACIÓN DE DESARROLLO
+# ============================================
+
+# Docker local
+docker-compose.yml
+docker-run-*.bat
+docker-run-*.sh
+
+# Heroku (si no se usa)
+Procfile
+app.json
+
+# App Engine (si se usa Cloud Run)
+app.yaml
+
+# Build configs que no se necesitan en runtime
+cloudbuild.yaml
+cloudrun-service.yaml
+gcp-setup.bat
+setup-iam-auth.bat
+
+# PM2 (si no se usa en contenedor)
+ecosystem.config.js
+
+# ============================================
+# ARCHIVOS DE DESARROLLO BACKEND
+# ============================================
+
+# Frontend dev server (solo local)
+server/frontend.js
+
+# Migration script local (startup.js lo reemplaza)
+server/migrate.js
+
+# Seeds de datos de prueba
+server/seeds/
+
+# ============================================
+# ARCHIVOS TEMPORALES Y OUTPUTS
+# ============================================
+
+# Health checks locales
+health_*.txt
+health_*.json
+
+# Archivos de ejemplo
+ejemplo*.txt
+ejemplo*.csv
+*_ejemplo.csv
+
+# SQL dumps
+*.sql
+!server/migrations/*.sql
+
+# Archivos de BD
+BD_*.sql
+
+# ============================================
+# ARCHIVOS DE PRUEBA
+# ============================================
+
+test/
+tests/
+*.test.js
+*.spec.js
+coverage/
+.nyc_output/
+
+# HTML de prueba
+test_*.html
+migrate.html
+
+# ============================================
+# OTROS
+# ============================================
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Backups
+*.backup
+*.bak
+*.old
+
+# Archivos temporales del editor
+*.tmp
+*.swp
+*.swo
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Cache
+.npm
+.cache
+.eslintcache

@@ -14,13 +14,6 @@ CREATE TABLE IF NOT EXISTS project_ot_relations (
 CREATE INDEX IF NOT EXISTS idx_project_ot_relations_project_id ON project_ot_relations(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_ot_relations_ot_id ON project_ot_relations(ot_id);
 
--- Migrar datos existentes de orders_of_work.project_id a la tabla intermedia
-INSERT INTO project_ot_relations (project_id, ot_id, created_at)
-SELECT project_id, id, created_at 
-FROM orders_of_work 
-WHERE project_id IS NOT NULL
-ON CONFLICT (project_id, ot_id) DO NOTHING;
-
 COMMENT ON TABLE project_ot_relations IS 'Relación Many-to-Many entre Proyectos y Órdenes de Trabajo';
 COMMENT ON COLUMN project_ot_relations.project_id IS 'ID del proyecto';
 COMMENT ON COLUMN project_ot_relations.ot_id IS 'ID de la orden de trabajo';

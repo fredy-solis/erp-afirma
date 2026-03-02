@@ -1,3 +1,14 @@
+// Configuración de la URL base del API
+// Esta función permite que el frontend funcione tanto con el servidor de desarrollo (puerto 8082)
+// como en producción (mismo puerto)
+window.getApiUrl = function(endpoint) {
+    // En desarrollo, el frontend está en puerto 8082 y el API en puerto 3000
+    // En producción, ambos están en el mismo puerto
+    const isDevelopment = window.location.port === '8082';
+    const apiBaseUrl = isDevelopment ? 'http://localhost:3000' : '';
+    return apiBaseUrl + endpoint;
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
     // Toggle sidebar
     const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -1284,6 +1295,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         jobOpeningForm.reset();
         document.getElementById('job-opening-id').value = '';
 
+        // Reset file display
+        const currentFileDisplay = document.getElementById('current-file-display');
+        if (currentFileDisplay) currentFileDisplay.style.display = 'none';
+
         // Reset tabs - específico para modal de vacantes
         const jobModal = document.getElementById('job-opening-modal');
         if (jobModal) {
@@ -1304,6 +1319,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('job-company').value = job.company || '';
             document.getElementById('job-contact-name').value = job.contact_person_name || '';
             document.getElementById('job-contact-email').value = job.contact_email || '';
+            document.getElementById('job-celula').value = job.celula_id || '';
+            document.getElementById('job-area').value = job.area_id || '';
             document.getElementById('job-cell-area').value = job.cell_area || '';
             document.getElementById('job-office-location').value = job.office_location || '';
             document.getElementById('job-work-modality').value = job.work_modality || '';
@@ -1315,6 +1332,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('job-basic-knowledge').value = job.basic_knowledge || '';
             document.getElementById('job-desirable-code').value = job.desirable_code || '';
             document.getElementById('job-status').value = job.status || 'Activa';
+            
+            // Mostrar archivo actual si existe
+            if (job.file_url) {
+                const currentFileDisplay = document.getElementById('current-file-display');
+                const currentFileLink = document.getElementById('current-file-link');
+                if (currentFileDisplay && currentFileLink) {
+                    currentFileDisplay.style.display = 'block';
+                    // Construir URL completa del archivo usando el servidor API
+                    const apiBaseUrl = window.getApiUrl ? window.getApiUrl('') : 'http://localhost:3000';
+                    currentFileLink.href = apiBaseUrl + job.file_url;
+                    currentFileLink.textContent = job.file_url.split('/').pop() || 'Ver archivo';
+                }
+            }
+            
+            // Cargar contactos comerciales
+            loadCommercialContacts(job.id);
+        } else {
+            // Limpiar contactos si es nueva vacante
+            clearCommercialContacts();
         }
 
         jobOpeningModal.style.display = 'flex';
@@ -1325,13 +1361,182 @@ document.addEventListener('DOMContentLoaded', async () => {
         jobOpeningForm.reset();
     }
 
+    async function confirmCloseJobOpeningModal(e) {
+        e.preventDefault();
+        
+        // Verificar si hay datos en el formulario
+        const hasData = 
+            document.getElementById('job-company')?.value.trim() ||
+            document.getElementById('job-contact-name')?.value.trim() ||
+            document.getElementById('job-contact-email')?.value.trim() ||
+            document.getElementById('job-position-name')?.value.trim();
+        
+        // Si no hay datos, cerrar directamente
+        if (!hasData) {
+            closeJobOpeningModal();
+            return;
+        }
+        
+        // Mostrar confirmación con SweetAlert
+        const result = await Swal.fire({
+            title: '¿Cancelar creación de vacante?',
+            text: 'Los datos ingresados se perderán',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cancelar',
+            cancelButtonText: 'Continuar editando',
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#3b82f6'
+        });
+        
+        if (result.isConfirmed) {
+            closeJobOpeningModal();
+        }
+    }
+
     // Event listeners for modal
     addVacantBtn?.addEventListener('click', () => openJobOpeningModal(false));
-    jobOpeningModalClose?.addEventListener('click', closeJobOpeningModal);
-    jobOpeningCancel?.addEventListener('click', closeJobOpeningModal);
+    jobOpeningModalClose?.addEventListener('click', confirmCloseJobOpeningModal);
+    jobOpeningCancel?.addEventListener('click', confirmCloseJobOpeningModal);
     jobOpeningModal?.addEventListener('click', (e) => {
         if (e.target === jobOpeningModal) closeJobOpeningModal();
     });
+
+    // ============ COMMERCIAL CONTACTS MANAGEMENT ============
+    let contactCounter = 0;
+
+    // Agregar contacto comercial
+    function addCommercialContact(contactData = null) {
+        const container = document.getElementById('commercial-contacts-container');
+        const template = document.getElementById('commercial-contact-template');
+        const noContactsMsg = document.getElementById('no-contacts-message');
+        
+        if (!container || !template) return;
+
+        // Ocultar mensaje de "no hay contactos"
+        if (noContactsMsg) {
+            noContactsMsg.style.display = 'none';
+        }
+
+        // Clonar template
+        const clone = template.content.cloneNode(true);
+        const row = clone.querySelector('.commercial-contact-row');
+        
+        // Asignar ID único
+        contactCounter++;
+        row.dataset.contactId = contactCounter;
+
+        // Si hay datos, rellenar los campos
+        if (contactData) {
+            row.querySelector('.contact-full-name').value = contactData.full_name || '';
+            row.querySelector('.contact-email').value = contactData.email || '';
+            row.querySelector('.contact-phone').value = contactData.phone || '';
+            row.querySelector('.contact-location').value = contactData.location || '';
+            // Si tiene ID de DB, guardarlo
+            if (contactData.id) {
+                row.dataset.dbId = contactData.id;
+            }
+        }
+
+        // Event listener para eliminar
+        row.querySelector('.remove-commercial-contact').addEventListener('click', function() {
+            row.remove();
+            // Si no quedan contactos, mostrar mensaje
+            const remainingContacts = container.querySelectorAll('.commercial-contact-row');
+            if (remainingContacts.length === 0 && noContactsMsg) {
+                noContactsMsg.style.display = 'block';
+            }
+        });
+
+        container.appendChild(clone);
+    }
+
+    // Obtener datos de todos los contactos del formulario
+    function getCommercialContactsData() {
+        const container = document.getElementById('commercial-contacts-container');
+        if (!container) return [];
+
+        const rows = container.querySelectorAll('.commercial-contact-row');
+        const contacts = [];
+
+        rows.forEach(row => {
+            const fullName = row.querySelector('.contact-full-name')?.value.trim();
+            const email = row.querySelector('.contact-email')?.value.trim().toLowerCase();
+            const phone = row.querySelector('.contact-phone')?.value.trim();
+            const location = row.querySelector('.contact-location')?.value.trim();
+
+            // Solo agregar si tiene al menos nombre y email
+            if (fullName && email) {
+                const contact = {
+                    full_name: fullName,
+                    email: email,
+                    phone: phone || null,
+                    location: location || null
+                };
+                
+                // Si tiene ID de DB (para updates), incluirlo
+                if (row.dataset.dbId) {
+                    contact.id = parseInt(row.dataset.dbId);
+                }
+                
+                contacts.push(contact);
+            }
+        });
+
+        return contacts;
+    }
+
+    // Limpiar contactos del formulario
+    function clearCommercialContacts() {
+        const container = document.getElementById('commercial-contacts-container');
+        const noContactsMsg = document.getElementById('no-contacts-message');
+        
+        if (!container) return;
+
+        // Eliminar todos los contactos
+        const rows = container.querySelectorAll('.commercial-contact-row');
+        rows.forEach(row => row.remove());
+
+        // Mostrar mensaje de "no hay contactos"
+        if (noContactsMsg) {
+            noContactsMsg.style.display = 'block';
+        }
+
+        // Reset counter
+        contactCounter = 0;
+    }
+
+    // Cargar contactos desde API
+    async function loadCommercialContacts(jobOpeningId) {
+        try {
+            const url = window.getApiUrl 
+                ? window.getApiUrl(`/api/job-openings/${jobOpeningId}/commercial-contacts`) 
+                : `/api/job-openings/${jobOpeningId}/commercial-contacts`;
+            
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.warn('No se pudieron cargar contactos comerciales');
+                return;
+            }
+            
+            const contacts = await res.json();
+            
+            // Limpiar contactos existentes
+            clearCommercialContacts();
+            
+            // Agregar cada contacto al formulario
+            contacts.forEach(contact => addCommercialContact(contact));
+            
+        } catch (err) {
+            console.error('Error cargando contactos comerciales:', err);
+        }
+    }
+
+    // Event listener para botón "Agregar Contacto"
+    const addContactBtn = document.getElementById('add-commercial-contact');
+    addContactBtn?.addEventListener('click', () => addCommercialContact());
+
+    // ============ END COMMERCIAL CONTACTS MANAGEMENT ============
 
     // Tab switching
     document.querySelectorAll('.tab-button').forEach(btn => {
@@ -1355,24 +1560,37 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.preventDefault();
 
         const id = document.getElementById('job-opening-id').value;
+        
+        // Obtener valores con trim() para evitar problemas con espacios
+        const company = document.getElementById('job-company').value.trim();
+        const contactName = document.getElementById('job-contact-name').value.trim();
+        const contactEmail = document.getElementById('job-contact-email').value.trim();
+        const positionName = document.getElementById('job-position-name').value.trim();
+        const celulaId = document.getElementById('job-celula').value;
+        const areaId = document.getElementById('job-area').value;
+        
         const payload = {
-            company: document.getElementById('job-company').value,
-            contact_person_name: document.getElementById('job-contact-name').value,
-            contact_email: document.getElementById('job-contact-email').value,
-            cell_area: document.getElementById('job-cell-area').value,
-            office_location: document.getElementById('job-office-location').value,
+            company: company,
+            contact_person_name: contactName,
+            contact_email: contactEmail,
+            celula_id: celulaId ? parseInt(celulaId) : null,
+            area_id: areaId ? parseInt(areaId) : null,
+            cell_area: document.getElementById('job-cell-area').value.trim(),
+            office_location: document.getElementById('job-office-location').value.trim(),
             work_modality: document.getElementById('job-work-modality').value,
             salary: parseFloat(document.getElementById('job-salary').value) || null,
-            position_name: document.getElementById('job-position-name').value,
-            role: document.getElementById('job-role').value,
-            years_experience: document.getElementById('job-years-experience').value,
-            technical_tools: document.getElementById('job-technical-tools').value,
-            basic_knowledge: document.getElementById('job-basic-knowledge').value,
-            desirable_code: document.getElementById('job-desirable-code').value,
-            status: document.getElementById('job-status').value
+            position_name: positionName,
+            role: document.getElementById('job-role').value.trim(),
+            years_experience: document.getElementById('job-years-experience').value.trim(),
+            technical_tools: document.getElementById('job-technical-tools').value.trim(),
+            basic_knowledge: document.getElementById('job-basic-knowledge').value.trim(),
+            desirable_code: document.getElementById('job-desirable-code').value.trim(),
+            status: document.getElementById('job-status').value,
+            commercial_contacts: getCommercialContactsData()
         };
 
-        if (!payload.company || !payload.contact_person_name || !payload.contact_email || !payload.position_name) {
+        // Validación con valores trimmed
+        if (!company || !contactName || !contactEmail || !positionName) {
             Swal.fire({
                 icon: 'warning',
                 title: 'Campos requeridos',
@@ -1382,6 +1600,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
+            // Crear FormData si hay archivo
+            const fileInput = document.getElementById('job-file');
+            let finalPayload = payload;
+            let headers = { 'Content-Type': 'application/json' };
+            let body = JSON.stringify(payload);
+
+            // Si hay archivo, usar FormData
+            if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                formData.append('data', JSON.stringify(payload));
+                body = formData;
+                headers = {}; // Dejar que el navegador establezca Content-Type con boundary
+            }
+
             const url = id 
                 ? (window.getApiUrl ? window.getApiUrl(`/api/job-openings/${id}`) : `/api/job-openings/${id}`)
                 : (window.getApiUrl ? window.getApiUrl('/api/job-openings') : '/api/job-openings');
@@ -1390,8 +1623,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                headers,
+                body
             });
 
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1540,6 +1773,30 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
 
+            // Populate cells for job openings
+            const jobCelulaSelect = document.getElementById('job-celula');
+            if (jobCelulaSelect) {
+                jobCelulaSelect.innerHTML = '<option value="">Seleccionar célula...</option>';
+                cells.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.name;
+                    jobCelulaSelect.appendChild(opt);
+                });
+            }
+
+            // Populate areas for job openings
+            const jobAreaSelect = document.getElementById('job-area');
+            if (jobAreaSelect) {
+                jobAreaSelect.innerHTML = '<option value="">Seleccionar área (opcional)...</option>';
+                areas.forEach(a => {
+                    const opt = document.createElement('option');
+                    opt.value = a.id;
+                    opt.textContent = a.name;
+                    jobAreaSelect.appendChild(opt);
+                });
+            }
+               
             // Populate contract types
             if (contractTypeSelect) {
                 contractTypeSelect.innerHTML = '<option value="">Seleccionar tipo...</option>';
@@ -2344,6 +2601,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const last = document.getElementById('candidate-last').value.trim();
         const email = document.getElementById('candidate-email').value.trim();
         const phone = document.getElementById('candidate-phone').value.trim();
+        const salaryExpectation = parseFloat(document.getElementById('candidate-salary-expectation').value) || null;
         const position = document.getElementById('candidate-position').value.trim();
         const status = document.getElementById('candidate-status').value.trim();
         const notes = document.getElementById('candidate-notes').value.trim();
@@ -2442,7 +2700,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
-        const payload = { first_name: first, last_name: last, email: email || null, phone: phone || null, position_applied: position, status, notes: notes || null, recruited_by: recruitedBy, hired_date: hiredDate, cv_url: cvUrl || null };
+        const payload = { 
+            first_name: first, 
+            last_name: last, 
+            email: email || null, 
+            phone: phone || null, 
+            salary_expectation: salaryExpectation,
+            position_applied: position, 
+            status, 
+            notes: notes || null, 
+            recruited_by: recruitedBy, 
+            hired_date: hiredDate, 
+            cv_url: cvUrl || null 
+        };
         
         console.log('📤 Payload siendo enviado:', payload);
         
@@ -4007,6 +4277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     ${ot.ot_code || '-'}
                 </td>
                 <td>${ot.folio_principal_santec || '-'}</td>
+                <td><span style="background:#e0f2fe;color:#0369a1;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">${ot.celula_name || '-'}</span></td>
                 <td>${ot.folio_santec || '-'}</td>
                 <td>
                     <strong style="color:#007bff;">${ot.project_name || '-'}</strong>
@@ -4023,10 +4294,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <td>${ot.responsable_proyecto || '-'}</td>
                 <td>${ot.cbt_responsable || '-'}</td>
                 <td>${formatCurrency(ot.monto_servicio_proveedor)}</td>
-                <td>${formatCurrency(ot.monto_servicio_proveedor_iva)}</td>
+                <td>${formatCurrency(ot.costo_ot)}</td>
                 <td>${ot.horas || '-'}</td>
                 <td>${formatPercent(ot.porcentaje_ejecucion)}</td>
                 <td>
+                    <button onclick="editOT(${ot.id})" class="btn-icon" title="Editar OT">✏️</button>
                     <button onclick="viewOTDetails(${ot.id})" class="btn-icon" title="Ver detalles">👁️</button>
                     <button onclick="deleteOT(${ot.id})" class="btn-icon" title="Eliminar OT">🗑️</button>
                 </td>
@@ -4154,6 +4426,242 @@ document.addEventListener('DOMContentLoaded', async () => {
             Swal.fire({ icon: 'error', title: 'Error al eliminar OT', text: err.message });
         }
     };
+
+    // Editar OT - Abrir modal y cargar datos
+    window.editOT = async function(otId) {
+        try {
+            const ot = allOrdersOfWork.find(o => o.id === otId);
+            if (!ot) {
+                Swal.fire({ icon: 'error', title: 'OT no encontrada' });
+                return;
+            }
+            
+            // Abrir modal
+            const modal = document.getElementById('ot-edit-modal');
+            if (!modal) {
+                console.error('Modal de edición de OT no encontrado');
+                return;
+            }
+            
+            // Cargar datos en el formulario
+            document.getElementById('ot-edit-id').value = ot.id || '';
+            document.getElementById('ot-edit-code').value = ot.ot_code || '';
+            document.getElementById('ot-edit-status').value = ot.status || 'Pendiente';
+            document.getElementById('ot-edit-project').value = ot.nombre_proyecto || ot.project_name || '';
+            document.getElementById('ot-edit-description').value = ot.description || '';
+            
+            // Folios
+            document.getElementById('ot-edit-folio-principal').value = ot.folio_principal_santec || '';
+            document.getElementById('ot-edit-folio-santec').value = ot.folio_santec || '';
+            document.getElementById('ot-edit-tipo-servicio').value = ot.tipo_servicio || '';
+            document.getElementById('ot-edit-tecnologia').value = ot.tecnologia || '';
+            document.getElementById('ot-edit-aplicativo').value = ot.aplicativo || '';
+            
+            // Fechas
+            document.getElementById('ot-edit-fecha-inicio-santander').value = formatDateForInput(ot.fecha_inicio_santander);
+            document.getElementById('ot-edit-fecha-fin-santander').value = formatDateForInput(ot.fecha_fin_santander);
+            document.getElementById('ot-edit-fecha-entrega-proveedor').value = formatDateForInput(ot.fecha_entrega_proveedor);
+            document.getElementById('ot-edit-fecha-inicio-proveedor').value = formatDateForInput(ot.fecha_inicio_proveedor);
+            document.getElementById('ot-edit-fecha-fin-proveedor').value = formatDateForInput(ot.fecha_fin_proveedor);
+            document.getElementById('ot-edit-dias-desvio').value = ot.dias_desvio_entrega || '';
+            document.getElementById('ot-edit-fecha-inicio-real').value = formatDateForInput(ot.fecha_inicio_real);
+            document.getElementById('ot-edit-fecha-fin-real').value = formatDateForInput(ot.fecha_fin_real);
+            document.getElementById('ot-edit-fecha-creacion').value = formatDateForInput(ot.fecha_creacion);
+            
+            // Responsables
+            document.getElementById('ot-edit-lider-delivery').value = ot.lider_delivery || '';
+            document.getElementById('ot-edit-responsable-proyecto').value = ot.responsable_proyecto || '';
+            document.getElementById('ot-edit-cbt-responsable').value = ot.cbt_responsable || '';
+            document.getElementById('ot-edit-proveedor').value = ot.proveedor || '';
+            
+            // Montos e indicadores
+            document.getElementById('ot-edit-horas-acordadas').value = ot.horas_acordadas || '';
+            document.getElementById('ot-edit-horas').value = ot.horas || '';
+            document.getElementById('ot-edit-costo-hora').value = ot.costo_hora_servicio_proveedor || '';
+            document.getElementById('ot-edit-costo-ot').value = ot.costo_ot || '';
+            document.getElementById('ot-edit-monto-servicio').value = ot.monto_servicio_proveedor || '';
+            document.getElementById('ot-edit-monto-iva').value = ot.monto_servicio_proveedor_iva || '';
+            document.getElementById('ot-edit-porcentaje').value = ot.porcentaje_ejecucion || '';
+            document.getElementById('ot-edit-semaforo-esfuerzo').value = ot.semaforo_esfuerzo || '';
+            document.getElementById('ot-edit-semaforo-plazo').value = ot.semaforo_plazo || '';
+            
+            // Información adicional
+            document.getElementById('ot-edit-ambiente').value = ot.ambiente || '';
+            document.getElementById('ot-edit-clase-coste').value = ot.clase_coste || '';
+            document.getElementById('ot-edit-folio-pds').value = ot.folio_pds || '';
+            document.getElementById('ot-edit-programa').value = ot.programa || '';
+            document.getElementById('ot-edit-front-negocio').value = ot.front_negocio || '';
+            document.getElementById('ot-edit-fts').value = ot.fts || '';
+            document.getElementById('ot-edit-autorizacion-rdp').value = ot.autorizacion_rdp || '';
+            document.getElementById('ot-edit-vobo-front').value = ot.vobo_front_negocio || '';
+            document.getElementById('ot-edit-fecha-vobo-front').value = formatDateForInput(ot.fecha_vobo_front_negocio);
+            document.getElementById('ot-edit-estimacion-pruebas').value = ot.estimacion_elab_pruebas || '';
+            
+            modal.style.display = 'flex';
+        } catch (err) {
+            console.error('Error loading OT for edit:', err);
+            Swal.fire({ icon: 'error', title: 'Error al cargar OT', text: err.message });
+        }
+    };
+
+    // Formatear fecha para input date (YYYY-MM-DD)
+    function formatDateForInput(dateValue) {
+        if (!dateValue) return '';
+        try {
+            const date = new Date(dateValue);
+            if (isNaN(date.getTime())) return '';
+            return date.toISOString().split('T')[0];
+        } catch (err) {
+            return '';
+        }
+    }
+
+    // Cerrar modal de edición
+    function closeOTEditModal() {
+        const modal = document.getElementById('ot-edit-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.getElementById('ot-edit-form').reset();
+        }
+    }
+
+    // Event listeners para el modal de edición de OT
+    document.addEventListener('DOMContentLoaded', function() {
+        // Botón cerrar modal
+        const closeBtn = document.getElementById('ot-edit-modal-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeOTEditModal);
+        }
+
+        // Botón cancelar
+        const cancelBtn = document.getElementById('ot-edit-cancel');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', closeOTEditModal);
+        }
+
+        // Cerrar al hacer click fuera del modal
+        const modal = document.getElementById('ot-edit-modal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    closeOTEditModal();
+                }
+            });
+        }
+
+        // Submit del formulario de edición
+        const form = document.getElementById('ot-edit-form');
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const otId = document.getElementById('ot-edit-id').value;
+                if (!otId) {
+                    Swal.fire({ icon: 'error', title: 'ID de OT no encontrado' });
+                    return;
+                }
+                
+                // Construir objeto con los datos actualizados
+                const updates = {
+                    ot_code: document.getElementById('ot-edit-code').value.trim(),
+                    status: document.getElementById('ot-edit-status').value,
+                    nombre_proyecto: document.getElementById('ot-edit-project').value.trim(),
+                    description: document.getElementById('ot-edit-description').value.trim(),
+                    
+                    // Folios
+                    folio_principal_santec: document.getElementById('ot-edit-folio-principal').value.trim() || null,
+                    folio_santec: document.getElementById('ot-edit-folio-santec').value.trim() || null,
+                    tipo_servicio: document.getElementById('ot-edit-tipo-servicio').value.trim() || null,
+                    tecnologia: document.getElementById('ot-edit-tecnologia').value.trim() || null,
+                    aplicativo: document.getElementById('ot-edit-aplicativo').value.trim() || null,
+                    
+                    // Fechas
+                    fecha_inicio_santander: document.getElementById('ot-edit-fecha-inicio-santander').value || null,
+                    fecha_fin_santander: document.getElementById('ot-edit-fecha-fin-santander').value || null,
+                    fecha_entrega_proveedor: document.getElementById('ot-edit-fecha-entrega-proveedor').value || null,
+                    fecha_inicio_proveedor: document.getElementById('ot-edit-fecha-inicio-proveedor').value || null,
+                    fecha_fin_proveedor: document.getElementById('ot-edit-fecha-fin-proveedor').value || null,
+                    dias_desvio_entrega: document.getElementById('ot-edit-dias-desvio').value || null,
+                    fecha_inicio_real: document.getElementById('ot-edit-fecha-inicio-real').value || null,
+                    fecha_fin_real: document.getElementById('ot-edit-fecha-fin-real').value || null,
+                    fecha_creacion: document.getElementById('ot-edit-fecha-creacion').value || null,
+                    
+                    // Responsables
+                    lider_delivery: document.getElementById('ot-edit-lider-delivery').value.trim() || null,
+                    responsable_proyecto: document.getElementById('ot-edit-responsable-proyecto').value.trim() || null,
+                    cbt_responsable: document.getElementById('ot-edit-cbt-responsable').value.trim() || null,
+                    proveedor: document.getElementById('ot-edit-proveedor').value.trim() || null,
+                    
+                    // Montos e indicadores
+                    horas_acordadas: document.getElementById('ot-edit-horas-acordadas').value || null,
+                    horas: document.getElementById('ot-edit-horas').value || null,
+                    costo_hora_servicio_proveedor: document.getElementById('ot-edit-costo-hora').value || null,
+                    costo_ot: document.getElementById('ot-edit-costo-ot').value || null,
+                    monto_servicio_proveedor: document.getElementById('ot-edit-monto-servicio').value || null,
+                    monto_servicio_proveedor_iva: document.getElementById('ot-edit-monto-iva').value || null,
+                    porcentaje_ejecucion: document.getElementById('ot-edit-porcentaje').value || null,
+                    semaforo_esfuerzo: document.getElementById('ot-edit-semaforo-esfuerzo').value || null,
+                    semaforo_plazo: document.getElementById('ot-edit-semaforo-plazo').value || null,
+                    
+                    // Información adicional
+                    ambiente: document.getElementById('ot-edit-ambiente').value.trim() || null,
+                    clase_coste: document.getElementById('ot-edit-clase-coste').value.trim() || null,
+                    folio_pds: document.getElementById('ot-edit-folio-pds').value.trim() || null,
+                    programa: document.getElementById('ot-edit-programa').value.trim() || null,
+                    front_negocio: document.getElementById('ot-edit-front-negocio').value.trim() || null,
+                    fts: document.getElementById('ot-edit-fts').value.trim() || null,
+                    autorizacion_rdp: document.getElementById('ot-edit-autorizacion-rdp').value.trim() || null,
+                    vobo_front_negocio: document.getElementById('ot-edit-vobo-front').value.trim() || null,
+                    fecha_vobo_front_negocio: document.getElementById('ot-edit-fecha-vobo-front').value || null,
+                    estimacion_elab_pruebas: document.getElementById('ot-edit-estimacion-pruebas').value.trim() || null
+                };
+                
+                try {
+                    // Deshabilitar botón de submit
+                    const submitBtn = document.getElementById('ot-edit-submit');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = '⏳ Guardando...';
+                    
+                    const response = await fetch(
+                        window.getApiUrl ? window.getApiUrl(`/api/orders-of-work/${otId}`) : `/api/orders-of-work/${otId}`,
+                        {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(updates)
+                        }
+                    );
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error || 'Error al actualizar OT');
+                    }
+                    
+                    Swal.fire({ 
+                        icon: 'success', 
+                        title: 'OT actualizada correctamente',
+                        timer: 2000,
+                        showConfirmButton: false
+                    });
+                    
+                    closeOTEditModal();
+                    window.loadOrdersOfWork();
+                    
+                } catch (err) {
+                    console.error('Error updating OT:', err);
+                    Swal.fire({ 
+                        icon: 'error', 
+                        title: 'Error al actualizar OT', 
+                        text: err.message 
+                    });
+                    
+                    // Re-habilitar botón
+                    const submitBtn = document.getElementById('ot-edit-submit');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '💾 Guardar Cambios';
+                }
+            });
+        }
+    });
 
     // Filtros de OTs
     const filterOTSearchBtn = document.getElementById('filter-ot-search-btn');

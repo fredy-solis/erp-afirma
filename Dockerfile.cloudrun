@@ -28,5 +28,5 @@ EXPOSE 8080
 ENV NODE_ENV=production
 ENV PORT=8080
 
-# Comando de inicio
-CMD ["node", "server/api.js"]
+# Comando de inicio - usa startup.js para ejecutar migraciones antes del servidor
+CMD ["node", "startup.js"]

@@ -69,6 +69,7 @@ function clearCandidateForm() {
     document.getElementById('candidate-last').value = '';
     document.getElementById('candidate-email').value = '';
     document.getElementById('candidate-phone').value = '';
+    document.getElementById('candidate-salary-expectation').value = '';
     document.getElementById('candidate-position').value = '';
     document.getElementById('candidate-status').value = 'En revisión'; 
     document.getElementById('candidate-notes').value = '';
@@ -77,6 +78,9 @@ function clearCandidateForm() {
     document.getElementById('candidate-hired-date-value').value = '';
     document.getElementById('candidate-cv-url').value = '';
     document.getElementById('candidate-submit').textContent = 'Guardar';
+    
+    // Habilitar todos los campos
+    enableCandidateForm();
 }
 
 function populateCandidateForm(candidate){
@@ -85,6 +89,7 @@ function populateCandidateForm(candidate){
     document.getElementById('candidate-last').value = candidate.last_name || '';
     document.getElementById('candidate-email').value = candidate.email || '';
     document.getElementById('candidate-phone').value = candidate.phone || '';
+    document.getElementById('candidate-salary-expectation').value = candidate.salary_expectation || '';
     document.getElementById('candidate-position').value = candidate.position_applied || '';
     document.getElementById('candidate-status').value = candidate.status || 'En revisión';
     document.getElementById('candidate-notes').value = candidate.notes || '';
@@ -92,12 +97,104 @@ function populateCandidateForm(candidate){
     document.getElementById('candidate-recruited-by-value').value = candidate.recruited_by || '';
     document.getElementById('candidate-hired-date-value').value = candidate.hired_date || '';
     document.getElementById('candidate-submit').textContent = 'Guardar cambios';
+    
+    // Si el candidato ya está contratado, congelar el formulario
+    if (candidate.status === 'Contratado') {
+        disableCandidateForm();
+    } else {
+        enableCandidateForm();
+    }
 }
 
 function escapeHtml(unsafe){
     return String(unsafe||'').replace(/[&<>"']/g, function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m];});
 }
 
+// Funciones para congelar/descongelar el formulario
+function disableCandidateForm() {
+    const formElements = [
+        'candidate-first',
+        'candidate-last',
+        'candidate-email',
+        'candidate-phone',
+        'candidate-salary-expectation',
+        'candidate-position',
+        'candidate-status',
+        'candidate-notes',
+        'candidate-cv'
+    ];
+    
+    formElements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.disabled = true;
+            element.style.opacity = '0.6';
+            element.style.cursor = 'not-allowed';
+            element.style.background = '#f3f4f6';
+        }
+    });
+    
+    // Deshabilitar botón de submit
+    const submitBtn = document.getElementById('candidate-submit');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.5';
+        submitBtn.style.cursor = 'not-allowed';
+        submitBtn.textContent = '🔒 Candidato Contratado (Solo Lectura)';
+    }
+    
+    // Mostrar mensaje de advertencia
+    const form = document.getElementById('candidate-form');
+    let warningDiv = document.getElementById('contratado-warning');
+    if (!warningDiv) {
+        warningDiv = document.createElement('div');
+        warningDiv.id = 'contratado-warning';
+        warningDiv.style.cssText = 'background:#fef3c7;color:#92400e;padding:12px;border-radius:8px;margin-bottom:15px;border-left:4px solid #f59e0b;font-size:14px';
+        warningDiv.innerHTML = '⚠️ <strong>Candidato Contratado:</strong> Este candidato ya fue contratado. No se pueden realizar modificaciones.';
+        form.insertBefore(warningDiv, form.firstChild);
+    }
+}
+
+function enableCandidateForm() {
+    const formElements = [
+        'candidate-first',
+        'candidate-last',
+        'candidate-email',
+        'candidate-phone',
+        'candidate-salary-expectation',
+        'candidate-position',
+        'candidate-status',
+        'candidate-notes',
+        'candidate-cv'
+    ];
+    
+    formElements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.disabled = false;
+            element.style.opacity = '1';
+            element.style.cursor = '';
+            element.style.background = '#fbfdff';
+        }
+    });
+    
+    // Habilitar botón de submit
+    const submitBtn = document.getElementById('candidate-submit');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        submitBtn.style.cursor = 'pointer';
+    }
+    
+    // Eliminar mensaje de advertencia
+    const warningDiv = document.getElementById('contratado-warning');
+    if (warningDiv) {
+        warningDiv.remove();
+    }
+}
+
 window.renderCandidates = renderCandidates;
 window.clearCandidateForm = clearCandidateForm;
 window.populateCandidateForm = populateCandidateForm;
+window.disableCandidateForm = disableCandidateForm;
+window.enableCandidateForm = enableCandidateForm;
