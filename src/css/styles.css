@@ -1027,3 +1027,114 @@ table td {
 /* NOTA: Los datos se guardan según el tipo de campo:
    - Campos normales: MAYÚSCULAS (JavaScript)
    - Emails: minúsculas (JavaScript) */
+/* ============================================
+   ESTILOS HOMOLOGADOS PARA MODAL DE EDICI�N DE OT
+   ============================================ */
+#ot-edit-form input[type="text"],
+#ot-edit-form input[type="email"],
+#ot-edit-form input[type="date"],
+#ot-edit-form input[type="number"],
+#ot-edit-form select,
+#ot-edit-form textarea {
+  width: 100%;
+  height: 42px;
+  padding: 10px 12px;
+  margin-bottom: 0;
+  border: 1px solid #e6eef8;
+  border-radius: 8px;
+  background: #fbfdff;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1e3a5f;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+/* Textarea tiene altura diferente pero mismo estilo */
+#ot-edit-form textarea {
+  height: auto;
+  min-height: 70px;
+  resize: vertical;
+}
+
+/* Estilos de focus consistentes */
+#ot-edit-form input[type="text"]:focus,
+#ot-edit-form input[type="email"]:focus,
+#ot-edit-form input[type="date"]:focus,
+#ot-edit-form input[type="number"]:focus,
+#ot-edit-form select:focus,
+#ot-edit-form textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+/* Estilos de hover consistentes */
+#ot-edit-form input[type="text"]:hover:not(:focus),
+#ot-edit-form input[type="email"]:hover:not(:focus),
+#ot-edit-form input[type="date"]:hover:not(:focus),
+#ot-edit-form input[type="number"]:hover:not(:focus),
+#ot-edit-form select:hover:not(:focus),
+#ot-edit-form textarea:hover:not(:focus) {
+  border-color: #b3d7ff;
+}
+
+/* Estilos de disabled consistentes */
+#ot-edit-form input[type="text"]:disabled,
+#ot-edit-form input[type="email"]:disabled,
+#ot-edit-form input[type="date"]:disabled,
+#ot-edit-form input[type="number"]:disabled,
+#ot-edit-form select:disabled,
+#ot-edit-form textarea:disabled {
+  background: #f0f4f8;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Placeholders consistentes */
+#ot-edit-form input::placeholder,
+#ot-edit-form textarea::placeholder {
+  color: #94a9c9;
+  font-size: 13px;
+}
+
+/* Ajustar altura de select para que coincida exactamente */
+#ot-edit-form select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231e3a5f' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 18px;
+  padding-right: 36px;
+}
+
+/* Labels consistentes */
+#ot-edit-form .field-label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #1e3a5f;
+  font-size: 13px;
+  letter-spacing: -0.2px;
+}
+
+/* Contenedores de campos */
+#ot-edit-form .form-section {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e6eef8;
+  border-radius: 12px;
+}
+
+#ot-edit-form .form-section h4 {
+  color: #007bff;
+  margin-bottom: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}

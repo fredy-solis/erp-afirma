@@ -273,6 +273,7 @@
                                 <tr>
                                     <th style="min-width:130px">🔢 Número OT</th>
                                     <th style="min-width:120px">📋 Folio Principal</th>
+                                    <th style="min-width:150px">🧩 Célula</th>
                                     <th style="min-width:120px">📄 Folio Santec</th>
                                     <th style="min-width:180px">📁 Proyecto</th>
                                     <th style="min-width:100px">📊 Estado</th>
@@ -286,7 +287,7 @@
                                     <th style="min-width:150px">👔 Responsable</th>
                                     <th style="min-width:150px">🏢 CBT Responsable</th>
                                     <th style="min-width:130px">💰 Monto Servicio</th>
-                                    <th style="min-width:130px">💵 Monto con IVA</th>
+                                    <th style="min-width:130px">� Costo OT</th>
                                     <th style="min-width:100px">⏱️ Horas</th>
                                     <th style="min-width:100px">📈 % Ejecución</th>
                                     <th style="min-width:150px">⚙️ Acciones</th>
@@ -1473,6 +1474,7 @@
                         </div>
                         <input type="text" id="candidate-email" placeholder="Email" required>
                         <input type="text" id="candidate-phone" placeholder="Teléfono (10 dígitos)" pattern="[0-9]{10}" maxlength="10" title="Ingresa exactamente 10 dígitos" required>
+                        <input type="number" id="candidate-salary-expectation" placeholder="Expectativa de sueldo (opcional)" step="0.01" min="0" style="width:100%;padding:12px;margin-bottom:10px;border:1px solid #e6eef8;border-radius:8px;background:#fbfdff">
                         <select id="candidate-position" required style="width:100%;padding:12px;margin-bottom:10px;border:1px solid #e6eef8;border-radius:8px;background:#fbfdff" required>
                             <option value="">Seleccionar posición solicitada...</option>
                         </select>
@@ -1550,7 +1552,7 @@
                 <div class="modal-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
                     <div class="modal-header">
                         <h3 id="job-opening-modal-title">🎯 Nueva Vacante</h3>
-                        <button type="button" class="modal-close" id="job-opening-modal-close">&times;</button>
+                        <a href="#" class="modal-close" id="job-opening-modal-close" style="text-decoration:none;color:inherit;cursor:pointer;font-size:28px;line-height:1;">&times;</a>
                     </div>
                     <form id="job-opening-form">
                         <input type="hidden" id="job-opening-id">
@@ -1560,6 +1562,7 @@
                             <div class="tab-buttons">
                                 <button type="button" class="tab-button active" data-tab="job-opening-datos">📧 Datos para envío</button>
                                 <button type="button" class="tab-button" data-tab="job-opening-perfil">👤 Perfil</button>
+                                <button type="button" class="tab-button" data-tab="job-opening-contactos">📞 Contactos</button>
                             </div>
 
                             <!-- Pestaña 1: Datos para envío -->
@@ -1568,13 +1571,22 @@
                                     <h4 style="color:#374151;margin-bottom:15px">📧 Información de Contacto y Envío</h4>
                                     
                                     <div style="display:flex;gap:10px;margin-bottom:10px">
-                                        <input type="text" id="job-company" placeholder="Empresa" required style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
-                                        <input type="text" id="job-contact-name" placeholder="Nombre del contacto" required style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
+                                        <input type="text" id="job-company" placeholder="Empresa *" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
+                                        <input type="text" id="job-contact-name" placeholder="Nombre del contacto *" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
                                     </div>
 
                                     <div style="display:flex;gap:10px;margin-bottom:10px">
-                                        <input type="email" id="job-contact-email" placeholder="Correo electrónico" required style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
-                                        <input type="text" id="job-cell-area" placeholder="Célula / Área" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
+                                        <input type="email" id="job-contact-email" placeholder="Correo electrónico *" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
+                                        <select id="job-celula" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px;background:#fbfdff">
+                                            <option value="">Seleccionar célula...</option>
+                                        </select>
+                                    </div>
+
+                                    <div style="display:flex;gap:10px;margin-bottom:10px">
+                                        <select id="job-area" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px;background:#fbfdff">
+                                            <option value="">Seleccionar área (opcional)...</option>
+                                        </select>
+                                        <input type="text" id="job-cell-area" placeholder="Célula / Área (texto libre)" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
                                     </div>
 
                                     <div style="display:flex;gap:10px;margin-bottom:10px">
@@ -1605,7 +1617,7 @@
                                     <h4 style="color:#374151;margin-bottom:15px">👤 Perfil Requerido</h4>
                                     
                                     <div style="display:flex;gap:10px;margin-bottom:10px">
-                                        <input type="text" id="job-position-name" placeholder="Nombre del puesto" required style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
+                                        <input type="text" id="job-position-name" placeholder="Nombre del puesto *" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
                                         <input type="text" id="job-role" placeholder="Rol" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
                                     </div>
 
@@ -1624,16 +1636,55 @@
                                     </div>
 
                                     <div style="margin-bottom:10px">
-                                        <label class="field-label">💡Co  deseables (opcional)</label>
+                                        <label class="field-label">💡 Código deseables (opcional)</label>
                                         <input type="text" id="job-desirable-code" placeholder="Ej: Senior, Full-Stack, Lead Developer" style="width:100%;padding:12px;border:1px solid #e6eef8;border-radius:8px">
                                     </div>
+
+                                    <div style="margin-bottom:10px">
+                                        <label class="field-label">📎 Archivo de la Vacante (opcional)</label>
+                                        <input type="file" id="job-file" accept="image/*,.pdf,.doc,.docx,.txt" style="width:100%;padding:12px;border:1px solid #e6eef8;border-radius:8px;background:#fbfdff">
+                                        <small style="color:#6b7280;font-size:12px;display:block;margin-top:4px">Formatos aceptados: Imágenes, PDF, Word, Texto</small>
+                                        <div id="current-file-display" style="margin-top:8px;display:none;color:#3b82f6">
+                                            📄 <a id="current-file-link" href="#" target="_blank" style="color:#3b82f6;text-decoration:underline"></a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pestaña 3: Contactos Comerciales -->
+                            <div id="tab-job-opening-contactos" class="tab-content">
+                                <div style="padding:20px 0">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
+                                        <h4 style="color:#374151;margin:0">📞 Contactos Comerciales</h4>
+                                        <button type="button" id="add-commercial-contact" style="background:#10b981;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px">
+                                            <span style="font-size:18px">+</span> Agregar Contacto
+                                        </button>
+                                    </div>
+                                    
+                                    <div id="commercial-contacts-container" style="display:flex;flex-direction:column;gap:10px">
+                                        <!-- Los contactos se agregarán dinámicamente aquí -->
+                                        <p id="no-contacts-message" style="color:#6b7280;text-align:center;padding:20px;margin:0;font-style:italic">
+                                            No hay contactos agregados. Haz clic en "Agregar Contacto" para comenzar.
+                                        </p>
+                                    </div>
+
+                                    <!-- Template oculto para contactos (no se muestra, se clona con JS) -->
+                                    <template id="commercial-contact-template">
+                                        <div class="commercial-contact-row" style="display:flex;gap:8px;padding:12px;background:white;border:1px solid #e6eef8;border-radius:6px;align-items:center">
+                                            <input type="text" class="contact-full-name" placeholder="Nombre Completo *" style="flex:1;padding:10px;border:1px solid #e6eef8;border-radius:6px">
+                                            <input type="email" class="contact-email" placeholder="correo@ejemplo.com *" style="flex:1;padding:10px;border:1px solid #e6eef8;border-radius:6px">
+                                            <input type="tel" class="contact-phone" placeholder="Teléfono" style="flex:0.8;padding:10px;border:1px solid #e6eef8;border-radius:6px">
+                                            <input type="text" class="contact-location" placeholder="Ubicación" style="flex:0.8;padding:10px;border:1px solid #e6eef8;border-radius:6px">
+                                            <button type="button" class="remove-commercial-contact" style="background:#ef4444;color:white;border:none;padding:10px 12px;border-radius:6px;cursor:pointer;font-size:16px" title="Eliminar contacto">🗑️</button>
+                                        </div>
+                                    </template>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Botones de acción -->
                         <div style="margin-top:20px;padding-top:20px;border-top:1px solid #e6eef8;display:flex;gap:8px;justify-content:flex-end">
-                            <button type="button" id="job-opening-cancel" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer">Cancelar</button>
+                            <a href="#" id="job-opening-cancel" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;">Cancelar</a>
                             <button type="submit" id="job-opening-submit" style="background:#3b82f6;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer">💾 Guardar Vacante</button>
                         </div>
                     </form>
@@ -2198,6 +2249,264 @@
                 </div>
                 <iframe id="cv-iframe" style="width:100%;height:100%;border:none;margin:0;padding:0;display:none;background:white" onload="document.getElementById('cv-loader').style.display='none';this.style.display='block'"></iframe>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal de Edición de Orden de Trabajo -->
+    <div id="ot-edit-modal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:1200px;max-height:90vh;overflow-y:auto;">
+            <div class="modal-header" style="position:sticky;top:0;background:white;z-index:10;">
+                <h3>✏️ Editar Orden de Trabajo</h3>
+                <button type="button" class="modal-close" id="ot-edit-modal-close">&times;</button>
+            </div>
+            <form id="ot-edit-form" style="padding:24px;">
+                <input type="hidden" id="ot-edit-id">
+                
+                <!-- Información General -->
+                <div class="form-section">
+                    <h4 style="color:#007bff;margin-bottom:16px;">📋 Información General</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                        <div>
+                            <label class="field-label">Número OT *</label>
+                            <input type="text" id="ot-edit-code" required placeholder="OT-2024-001">
+                        </div>
+                        <div>
+                            <label class="field-label">Estado *</label>
+                            <select id="ot-edit-status" required>
+                                <option value="Pendiente">Pendiente</option>
+                                <option value="En Progreso">En Progreso</option>
+                                <option value="Completada">Completada</option>
+                                <option value="Cancelada">Cancelada</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label">Proyecto</label>
+                            <input type="text" id="ot-edit-project" placeholder="Nombre del proyecto">
+                        </div>
+                    </div>
+                    <div style="margin-top:12px;">
+                        <label class="field-label">Descripción</label>
+                        <textarea id="ot-edit-description" rows="2" placeholder="Descripción de la OT" style="width:100%;padding:12px;border:1px solid #e6eef8;border-radius:8px;background:#fbfdff;font-family:inherit;"></textarea>
+                    </div>
+                </div>
+
+                <!-- Folios y Clasificación -->
+                <div class="form-section">
+                    <h4 style="color:#007bff;margin-bottom:16px;">🏢 Folios y Clasificación</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label class="field-label">Folio Principal Santec</label>
+                            <input type="text" id="ot-edit-folio-principal" placeholder="Folio principal">
+                        </div>
+                        <div>
+                            <label class="field-label">Folio Santec</label>
+                            <input type="text" id="ot-edit-folio-santec" placeholder="Folio">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                        <div>
+                            <label class="field-label">Tipo Servicio</label>
+                            <input type="text" id="ot-edit-tipo-servicio" placeholder="Tipo de servicio">
+                        </div>
+                        <div>
+                            <label class="field-label">Tecnología</label>
+                            <input type="text" id="ot-edit-tecnologia" placeholder="Tecnología">
+                        </div>
+                        <div>
+                            <label class="field-label">Aplicativo</label>
+                            <input type="text" id="ot-edit-aplicativo" placeholder="Aplicativo">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fechas -->
+                <div class="form-section">
+                    <h4 style="color:#007bff;margin-bottom:16px;">📅 Fechas</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label class="field-label">Inicio Santander</label>
+                            <input type="date" id="ot-edit-fecha-inicio-santander">
+                        </div>
+                        <div>
+                            <label class="field-label">Fin Santander</label>
+                            <input type="date" id="ot-edit-fecha-fin-santander">
+                        </div>
+                        <div>
+                            <label class="field-label">Entrega Proveedor</label>
+                            <input type="date" id="ot-edit-fecha-entrega-proveedor">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label class="field-label">Inicio Proveedor</label>
+                            <input type="date" id="ot-edit-fecha-inicio-proveedor">
+                        </div>
+                        <div>
+                            <label class="field-label">Fin Proveedor</label>
+                            <input type="date" id="ot-edit-fecha-fin-proveedor">
+                        </div>
+                        <div>
+                            <label class="field-label">Días Desvío Entrega</label>
+                            <input type="number" id="ot-edit-dias-desvio" placeholder="Días">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                        <div>
+                            <label class="field-label">Inicio Real</label>
+                            <input type="date" id="ot-edit-fecha-inicio-real">
+                        </div>
+                        <div>
+                            <label class="field-label">Fin Real</label>
+                            <input type="date" id="ot-edit-fecha-fin-real">
+                        </div>
+                        <div>
+                            <label class="field-label">Fecha Creación</label>
+                            <input type="date" id="ot-edit-fecha-creacion">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Responsables -->
+                <div class="form-section">
+                    <h4 style="color:#007bff;margin-bottom:16px;">👥 Responsables</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label class="field-label">Líder Delivery</label>
+                            <input type="text" id="ot-edit-lider-delivery" placeholder="Nombre del líder">
+                        </div>
+                        <div>
+                            <label class="field-label">Responsable Proyecto</label>
+                            <input type="text" id="ot-edit-responsable-proyecto" placeholder="Responsable">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label class="field-label">CBT Responsable</label>
+                            <input type="text" id="ot-edit-cbt-responsable" placeholder="CBT">
+                        </div>
+                        <div>
+                            <label class="field-label">Proveedor</label>
+                            <input type="text" id="ot-edit-proveedor" placeholder="Proveedor">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Montos e Indicadores -->
+                <div class="form-section">
+                    <h4 style="color:#007bff;margin-bottom:16px;">💰 Montos e Indicadores</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label class="field-label">Horas Acordadas</label>
+                            <input type="number" id="ot-edit-horas-acordadas" step="0.5" placeholder="Horas">
+                        </div>
+                        <div>
+                            <label class="field-label">Horas</label>
+                            <input type="number" id="ot-edit-horas" step="0.5" placeholder="Horas">
+                        </div>
+                        <div>
+                            <label class="field-label">Costo por Hora</label>
+                            <input type="number" id="ot-edit-costo-hora" step="0.01" placeholder="$0.00">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label class="field-label">Costo OT</label>
+                            <input type="number" id="ot-edit-costo-ot" step="0.01" placeholder="$0.00">
+                        </div>
+                        <div>
+                            <label class="field-label">Monto Servicio Proveedor</label>
+                            <input type="number" id="ot-edit-monto-servicio" step="0.01" placeholder="$0.00">
+                        </div>
+                        <div>
+                            <label class="field-label">Monto con IVA</label>
+                            <input type="number" id="ot-edit-monto-iva" step="0.01" placeholder="$0.00">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+                        <div>
+                            <label class="field-label">% Ejecución</label>
+                            <input type="number" id="ot-edit-porcentaje" min="0" max="100" placeholder="0-100">
+                        </div>
+                        <div>
+                            <label class="field-label">Semáforo Esfuerzo</label>
+                            <select id="ot-edit-semaforo-esfuerzo">
+                                <option value="">Seleccionar...</option>
+                                <option value="Verde">🟢 Verde</option>
+                                <option value="Amarillo">🟡 Amarillo</option>
+                                <option value="Rojo">🔴 Rojo</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label">Semáforo Plazo</label>
+                            <select id="ot-edit-semaforo-plazo">
+                                <option value="">Seleccionar...</option>
+                                <option value="Verde">🟢 Verde</option>
+                                <option value="Amarillo">🟡 Amarillo</option>
+                                <option value="Rojo">🔴 Rojo</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información Adicional -->
+                <div class="form-section">
+                    <h4 style="color:#007bff;margin-bottom:16px;">📋 Información Adicional</h4>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label class="field-label">Ambiente</label>
+                            <input type="text" id="ot-edit-ambiente" placeholder="Ambiente">
+                        </div>
+                        <div>
+                            <label class="field-label">Clase de Coste</label>
+                            <input type="text" id="ot-edit-clase-coste" placeholder="Clase">
+                        </div>
+                        <div>
+                            <label class="field-label">Folio PDS</label>
+                            <input type="text" id="ot-edit-folio-pds" placeholder="Folio">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;">
+                        <div>
+                            <label class="field-label">Programa</label>
+                            <input type="text" id="ot-edit-programa" placeholder="Programa">
+                        </div>
+                        <div>
+                            <label class="field-label">Front de Negocio</label>
+                            <input type="text" id="ot-edit-front-negocio" placeholder="Front">
+                        </div>
+                        <div>
+                            <label class="field-label">FT's</label>
+                            <input type="text" id="ot-edit-fts" placeholder="FTs">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div>
+                            <label class="field-label">Autorización RDP</label>
+                            <input type="text" id="ot-edit-autorizacion-rdp" placeholder="Autorización">
+                        </div>
+                        <div>
+                            <label class="field-label">VoBo Front Negocio</label>
+                            <input type="text" id="ot-edit-vobo-front" placeholder="VoBo">
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+                        <div>
+                            <label class="field-label">Fecha VoBo Front Negocio</label>
+                            <input type="date" id="ot-edit-fecha-vobo-front">
+                        </div>
+                        <div>
+                            <label class="field-label">Estimación Elab. Pruebas</label>
+                            <input type="text" id="ot-edit-estimacion-pruebas" placeholder="Estimación">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de acción -->
+                <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;padding-top:20px;border-top:2px solid #e6eef8;">
+                    <button type="button" id="ot-edit-cancel" class="btn-cancel">❌ Cancelar</button>
+                    <button type="submit" id="ot-edit-submit" class="btn-primary">💾 Guardar Cambios</button>
+                </div>
+            </form>
         </div>
     </div>
     

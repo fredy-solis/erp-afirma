@@ -102,6 +102,35 @@ const upload = multer({
   }
 });
 
+// Configure multer for job opening files (images, pdf, word, txt)
+const jobOpeningStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'job-openings');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'vacancy-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadJobFile = multer({
+  storage: jobOpeningStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', '.txt'];
+    if (allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten imágenes, PDF, Word y archivos de texto'));
+    }
+  }
+});
+
 // Helpers: resolve or create entity/position by name
 async function findOrCreateEntity(name) {
   if (!name) return null;
@@ -472,7 +501,7 @@ app.get('/api/candidates', async (req, res) => {
 
 // Create candidate
 app.post('/api/candidates', async (req, res) => {
-  let { first_name, last_name, email, phone, position_applied, status, notes, name } = req.body;
+  let { first_name, last_name, email, phone, salary_expectation, position_applied, status, notes, name } = req.body;
 
   if (!first_name && name) {
     const parts = String(name).trim().split(/\s+/);
@@ -497,9 +526,9 @@ app.post('/api/candidates', async (req, res) => {
   try {
     // Crear candidato SIN recruited_by (se asignará solo cuando cambie a Contratado)
     const result = await db.query(
-      `INSERT INTO candidates (first_name, last_name, email, phone, position_applied, status, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [first_name || null, last_name || null, email, phone || null, position_applied || null, status || 'En revisión', notes || null]
+      `INSERT INTO candidates (first_name, last_name, email, phone, salary_expectation, position_applied, status, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [first_name || null, last_name || null, email, phone || null, salary_expectation || null, position_applied || null, status || 'En revisión', notes || null]
     );
     return res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -511,7 +540,7 @@ app.post('/api/candidates', async (req, res) => {
 // Update candidate
 app.put('/api/candidates/:id', async (req, res) => {
   const id = req.params.id;
-  const { first_name, last_name, email, phone, position_applied, status, notes, recruited_by, hired_date } = req.body;
+  const { first_name, last_name, email, phone, salary_expectation, position_applied, status, notes, recruited_by, hired_date } = req.body;
   
   
   // validate email if provided
@@ -534,8 +563,8 @@ app.put('/api/candidates/:id', async (req, res) => {
     // Intentar con recruited_by y hired_date
     try {
       const result = await db.query(
-        `UPDATE candidates SET first_name=$1, last_name=$2, email=$3, phone=$4, position_applied=$5, status=$6, notes=$7, recruited_by=$8, hired_date=$9 WHERE id=$10 RETURNING *`,
-        [first_name || null, last_name || null, email || null, phone || null, position_applied || null, status || null, notes || null, finalRecruitedBy, finalHiredDate, id]
+        `UPDATE candidates SET first_name=$1, last_name=$2, email=$3, phone=$4, salary_expectation=$5, position_applied=$6, status=$7, notes=$8, recruited_by=$9, hired_date=$10 WHERE id=$11 RETURNING *`,
+        [first_name || null, last_name || null, email || null, phone || null, salary_expectation || null, position_applied || null, status || null, notes || null, finalRecruitedBy, finalHiredDate, id]
       );
       if (result.rowCount === 0) return res.status(404).json({ error: 'Candidate not found' });
       console.log('✅ Candidato actualizado correctamente, recruited_by=' + result.rows[0].recruited_by + ', hired_date=' + result.rows[0].hired_date);
@@ -2196,7 +2225,7 @@ app.get('/api/projects', async (req, res) => {
 app.get('/api/projects/assignments', async (req, res) => {
   try {
     const result = await db.query(
-      `SELECT pa.id, pa.project_id, pa.employee_id, pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
+      `SELECT pa.id, pa.project_id, pa.employee_id, pa.ot_id, pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
               e.first_name, e.last_name, e.email, e.employee_code,
               p.name as project_name,
               mc_position.item as position,
@@ -2231,7 +2260,7 @@ app.get('/api/projects/:id/assignments', async (req, res) => {
   const { id } = req.params;
   try {
     const result = await db.query(
-      `SELECT pa.id, pa.project_id, pa.employee_id, pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
+      `SELECT pa.id, pa.project_id, pa.employee_id, pa.ot_id, pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
               e.first_name, e.last_name, e.email, e.employee_code,
               mc_position.item as position,
               mc_area.item as area,
@@ -2393,7 +2422,7 @@ app.put('/api/orders-of-work/:id', async (req, res) => {
     'autorizacion_rdp', 'responsable_proyecto', 'cbt_responsable', 'proveedor',
     'fecha_inicio_real', 'fecha_fin_real', 'fecha_entrega_proveedor', 'dias_desvio_entrega',
     'ambiente', 'fecha_creacion', 'fts', 'estimacion_elab_pruebas',
-    'costo_hora_servicio_proveedor', 'monto_servicio_proveedor', 'monto_servicio_proveedor_iva',
+    'costo_hora_servicio_proveedor', 'costo_ot', 'monto_servicio_proveedor', 'monto_servicio_proveedor_iva',
     'clase_coste', 'folio_pds', 'programa', 'front_negocio', 'vobo_front_negocio',
     'fecha_vobo_front_negocio', 'horas', 'porcentaje_ejecucion'
   ];
@@ -2455,11 +2484,13 @@ app.get('/api/orders-of-work', async (req, res) => {
         p.cbt_responsible as cbt_responsable,
         p.start_date as project_start_date,
         p.end_date as project_end_date,
+        mc.item as celula_name,
         por.id as relation_id,
         por.created_at as relation_created_at
       FROM orders_of_work ow
       LEFT JOIN project_ot_relations por ON ow.id = por.ot_id
       LEFT JOIN projects p ON por.project_id = p.id
+      LEFT JOIN mastercode mc ON p.celula_id = mc.id AND mc.lista = 'Celulas'
       ORDER BY ow.created_at DESC, p.name
     `);
     res.json(result.rows);
@@ -3398,15 +3429,27 @@ app.get('/api/job-openings/:id', async (req, res) => {
 });
 
 // Create job opening
-app.post('/api/job-openings', async (req, res) => {
+app.post('/api/job-openings', uploadJobFile.single('file'), async (req, res) => {
+  // Si viene FormData con archivo, los datos vienen en req.body.data
+  let bodyData = req.body;
+  if (req.body.data) {
+    try {
+      bodyData = JSON.parse(req.body.data);
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid data format' });
+    }
+  }
+
   const {
     // Sección 1: Datos para envío
-    company, contact_person_name, contact_email, cell_area, office_location, work_modality, salary,
+    company, contact_person_name, contact_email, celula_id, area_id, cell_area, office_location, work_modality, salary,
     // Sección 2: Perfil
     position_name, role, years_experience, technical_tools, basic_knowledge, desirable_code,
     // Metadatos
-    status, created_by
-  } = req.body;
+    status, created_by,
+    // Contactos comerciales
+    commercial_contacts
+  } = bodyData;
 
   // Validate required fields
   if (!company || !contact_person_name || !contact_email || !position_name) {
@@ -3415,28 +3458,62 @@ app.post('/api/job-openings', async (req, res) => {
     });
   }
 
+  // Get file URL if uploaded
+  const fileUrl = req.file ? `/uploads/job-openings/${req.file.filename}` : null;
+
+  const client = await db.pool.connect();
+  
   try {
-    const result = await db.query(
+    await client.query('BEGIN');
+    
+    // Crear la vacante
+    const jobResult = await client.query(
       `INSERT INTO job_openings (
-        company, contact_person_name, contact_email, cell_area, office_location, work_modality, salary,
+        company, contact_person_name, contact_email, celula_id, area_id, cell_area, office_location, work_modality, salary,
         position_name, role, years_experience, technical_tools, basic_knowledge, desirable_code,
-        status, created_by
+        status, created_by, file_url
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *`,
       [
-        company, contact_person_name, contact_email, cell_area || null, office_location || null,
+        company, contact_person_name, contact_email, celula_id || null, area_id || null, cell_area || null, office_location || null,
         work_modality || null, salary || null,
         position_name, role || null, years_experience || null, technical_tools || null,
         basic_knowledge || null, desirable_code || null,
-        status || 'Activa', created_by || 'system'
+        status || 'Activa', created_by || 'system', fileUrl
       ]
     );
     
-    res.status(201).json(result.rows[0]);
+    const jobOpening = jobResult.rows[0];
+    
+    // Insertar contactos comerciales si los hay
+    if (commercial_contacts && Array.isArray(commercial_contacts) && commercial_contacts.length > 0) {
+      for (const contact of commercial_contacts) {
+        if (contact.full_name && contact.email) {
+          await client.query(
+            `INSERT INTO commercial_contacts (job_opening_id, full_name, email, phone, location)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+              jobOpening.id,
+              contact.full_name,
+              contact.email.toLowerCase(),
+              contact.phone || null,
+              contact.location || null
+            ]
+          );
+        }
+      }
+    }
+    
+    await client.query('COMMIT');
+    res.status(201).json(jobOpening);
+    
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Error creating job opening:', err);
     res.status(500).json({ error: 'Error creating job opening' });
+  } finally {
+    client.release();
   }
 });
 
@@ -3522,49 +3599,120 @@ app.post('/api/debug/run-migration-034', async (req, res) => {
 });
 
 // Update job opening
-app.put('/api/job-openings/:id', async (req, res) => {
+app.put('/api/job-openings/:id', uploadJobFile.single('file'), async (req, res) => {
   const { id } = req.params;
+  
+  // Si viene FormData con archivo, los datos vienen en req.body.data
+  let bodyData = req.body;
+  if (req.body.data) {
+    try {
+      bodyData = JSON.parse(req.body.data);
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid data format' });
+    }
+  }
+
   const {
-    company, contact_person_name, contact_email, cell_area, office_location, work_modality, salary,
+    company, contact_person_name, contact_email, celula_id, area_id, cell_area, office_location, work_modality, salary,
     position_name, role, years_experience, technical_tools, basic_knowledge, desirable_code,
-    status
-  } = req.body;
+    status,
+    commercial_contacts
+  } = bodyData;
+
+  // Get file URL if uploaded
+  const fileUrl = req.file ? `/uploads/job-openings/${req.file.filename}` : undefined;
+
+  const client = await db.pool.connect();
 
   try {
-    const result = await db.query(
-      `UPDATE job_openings SET
-        company = COALESCE($1, company),
-        contact_person_name = COALESCE($2, contact_person_name),
-        contact_email = COALESCE($3, contact_email),
-        cell_area = COALESCE($4, cell_area),
-        office_location = COALESCE($5, office_location),
-        work_modality = COALESCE($6, work_modality),
-        salary = COALESCE($7, salary),
-        position_name = COALESCE($8, position_name),
-        role = COALESCE($9, role),
-        years_experience = COALESCE($10, years_experience),
-        technical_tools = COALESCE($11, technical_tools),
-        basic_knowledge = COALESCE($12, basic_knowledge),
-        desirable_code = COALESCE($13, desirable_code),
-        status = COALESCE($14, status),
-        updated_at = CURRENT_TIMESTAMP
-       WHERE id = $15
-       RETURNING *`,
-      [
-        company, contact_person_name, contact_email, cell_area, office_location,
-        work_modality, salary, position_name, role, years_experience,
-        technical_tools, basic_knowledge, desirable_code, status, id
-      ]
-    );
+    await client.query('BEGIN');
+    
+    // Preparar valores, usar undefined para no actualizar si no viene el campo
+    const updateValues = {
+      company,
+      contact_person_name,
+      contact_email,
+      celula_id: celula_id !== undefined ? (celula_id || null) : undefined,
+      area_id: area_id !== undefined ? (area_id || null) : undefined,
+      cell_area,
+      office_location,
+      work_modality,
+      salary,
+      position_name,
+      role,
+      years_experience,
+      technical_tools,
+      basic_knowledge,
+      desirable_code,
+      status,
+      file_url: fileUrl
+    };
 
-    if (result.rowCount === 0) {
+    // Construir query dinámicamente solo con campos que vienen
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    Object.entries(updateValues).forEach(([key, value]) => {
+      if (value !== undefined) {
+        updates.push(`${key} = $${paramCount}`);
+        values.push(value);
+        paramCount++;
+      }
+    });
+
+    if (updates.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+
+    const query = `UPDATE job_openings SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+    
+    const jobResult = await client.query(query, values);
+
+    if (jobResult.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Job opening not found' });
     }
 
-    res.json(result.rows[0]);
+    // Manejar contactos comerciales si se proporcionan
+    if (commercial_contacts && Array.isArray(commercial_contacts)) {
+      // Eliminar todos los contactos existentes
+      await client.query(
+        `DELETE FROM commercial_contacts WHERE job_opening_id = $1`,
+        [id]
+      );
+      
+      // Insertar los nuevos contactos
+      for (const contact of commercial_contacts) {
+        if (contact.full_name && contact.email) {
+          await client.query(
+            `INSERT INTO commercial_contacts (job_opening_id, full_name, email, phone, location)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+              id,
+              contact.full_name,
+              contact.email.toLowerCase(),
+              contact.phone || null,
+              contact.location || null
+            ]
+          );
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json(jobResult.rows[0]);
+    
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error('Error updating job opening:', err);
     res.status(500).json({ error: 'Error updating job opening' });
+  } finally {
+    client.release();
   }
 });
 
@@ -3590,6 +3738,105 @@ app.patch('/api/job-openings/:id', async (req, res) => {
   } catch (err) {
     console.error('Error deleting job opening:', err);
     res.status(500).json({ error: 'Error deleting job opening' });
+  }
+});
+
+// ============ COMMERCIAL CONTACTS ENDPOINTS ============
+
+// Get commercial contacts for a job opening
+app.get('/api/job-openings/:id/commercial-contacts', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await db.query(
+      `SELECT * FROM commercial_contacts WHERE job_opening_id = $1 ORDER BY created_at ASC`,
+      [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching commercial contacts:', err);
+    res.status(500).json({ error: 'Error fetching commercial contacts' });
+  }
+});
+
+// Create commercial contact for a job opening
+app.post('/api/job-openings/:id/commercial-contacts', async (req, res) => {
+  const { id } = req.params;
+  const { full_name, email, phone, location } = req.body;
+
+  if (!full_name || !email) {
+    return res.status(400).json({
+      error: 'Required fields: full_name, email'
+    });
+  }
+
+  try {
+    // Ensure email is lowercase
+    const normalizedEmail = email.toLowerCase();
+
+    const result = await db.query(
+      `INSERT INTO commercial_contacts (job_opening_id, full_name, email, phone, location)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [id, full_name, normalizedEmail, phone || null, location || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error creating commercial contact:', err);
+    res.status(500).json({ error: 'Error creating commercial contact' });
+  }
+});
+
+// Update commercial contact
+app.put('/api/commercial-contacts/:id', async (req, res) => {
+  const { id } = req.params;
+  const { full_name, email, phone, location } = req.body;
+
+  try {
+    // Ensure email is lowercase if provided
+    const normalizedEmail = email ? email.toLowerCase() : null;
+
+    const result = await db.query(
+      `UPDATE commercial_contacts SET
+        full_name = COALESCE($1, full_name),
+        email = COALESCE($2, email),
+        phone = COALESCE($3, phone),
+        location = COALESCE($4, location),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE id = $5
+       RETURNING *`,
+      [full_name, normalizedEmail, phone, location, id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Commercial contact not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error updating commercial contact:', err);
+    res.status(500).json({ error: 'Error updating commercial contact' });
+  }
+});
+
+// Delete commercial contact
+app.delete('/api/commercial-contacts/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const result = await db.query(
+      `DELETE FROM commercial_contacts WHERE id = $1 RETURNING *`,
+      [id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Commercial contact not found' });
+    }
+
+    res.json({ success: true, message: 'Commercial contact deleted' });
+  } catch (err) {
+    console.error('Error deleting commercial contact:', err);
+    res.status(500).json({ error: 'Error deleting commercial contact' });
   }
 });
 
