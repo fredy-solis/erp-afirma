@@ -2258,6 +2258,19 @@ app.get('/api/projects', async (req, res) => {
 // Get all project assignments (for general assignments view) - MUST BE BEFORE /:id route
 app.get('/api/projects/assignments', async (req, res) => {
   try {
+    // Primero verificar si la tabla existe
+    const tableCheck = await db.query(
+      `SELECT EXISTS (
+         SELECT FROM information_schema.tables 
+         WHERE table_name = 'project_assignments'
+       )`
+    );
+    
+    if (!tableCheck.rows[0].exists) {
+      console.log('⚠️  Tabla project_assignments no existe');
+      return res.json([]); // Retornar array vacío si no existe la tabla
+    }
+    
     // Verificar qué columnas existen
     const columnCheck = await db.query(
       `SELECT column_name FROM information_schema.columns 
@@ -2269,26 +2282,34 @@ app.get('/api/projects/assignments', async (req, res) => {
     const hasAllocation = columnCheck.rows.some(r => r.column_name === 'allocation_percentage');
     const hasRate = columnCheck.rows.some(r => r.column_name === 'rate');
     
-    const otIdSelect = hasOtId ? 'pa.ot_id,' : 'NULL as ot_id,';
-    const allocationSelect = hasAllocation ? 'pa.allocation_percentage,' : '100 as allocation_percentage,';
-    const rateSelect = hasRate ? 'pa.rate,' : 'NULL as rate,';
+    console.log('🔍 Schema check:', { hasOtId, hasAllocation, hasRate });
+    
+    // Construir SELECT dinámico
+    const otIdCol = hasOtId ? 'pa.ot_id' : 'NULL as ot_id';
+    const allocationCol = hasAllocation ? 'pa.allocation_percentage' : '100 as allocation_percentage';
+    const rateCol = hasRate ? 'pa.rate' : 'NULL as rate';
     
     const result = await db.query(
-      `SELECT pa.id, pa.project_id, pa.employee_id, ${otIdSelect} pa.role, pa.start_date, pa.end_date, ${allocationSelect} ${rateSelect}
-              e.first_name, e.last_name, e.email, e.employee_code,
-              p.name as project_name,
-              mc_position.item as position,
-              mc_area.item as area,
-              mc_entity.item as entity,
-              CASE 
-                WHEN pa.end_date IS NULL OR pa.end_date >= CURRENT_DATE THEN true
-                ELSE false
-              END as is_active,
-              CASE
-                WHEN pa.end_date IS NULL THEN 'Sin fecha fin'
-                WHEN pa.end_date >= CURRENT_DATE THEN 'Activo'
-                ELSE 'Finalizado'
-              END as status
+      `SELECT 
+         pa.id, pa.project_id, pa.employee_id, 
+         ${otIdCol},
+         pa.role, pa.start_date, pa.end_date, 
+         ${allocationCol},
+         ${rateCol},
+         e.first_name, e.last_name, e.email, e.employee_code,
+         p.name as project_name,
+         mc_position.item as position,
+         mc_area.item as area,
+         mc_entity.item as entity,
+         CASE 
+           WHEN pa.end_date IS NULL OR pa.end_date >= CURRENT_DATE THEN true
+           ELSE false
+         END as is_active,
+         CASE
+           WHEN pa.end_date IS NULL THEN 'Sin fecha fin'
+           WHEN pa.end_date >= CURRENT_DATE THEN 'Activo'
+           ELSE 'Finalizado'
+         END as status
        FROM project_assignments pa
        INNER JOIN employees_v2 e ON pa.employee_id = e.id
        INNER JOIN projects p ON pa.project_id = p.id
@@ -2297,11 +2318,19 @@ app.get('/api/projects/assignments', async (req, res) => {
        LEFT JOIN mastercode mc_entity ON e.entity_id = mc_entity.id
        ORDER BY pa.start_date DESC, e.first_name, e.last_name`
     );
+    
+    console.log(`✅ Assignments found: ${result.rows.length}`);
     res.json(result.rows);
   } catch (err) {
     console.error('❌ Error fetching all assignments:', err);
+    console.error('Error code:', err.code);
+    console.error('Error detail:', err.detail);
     console.error('Stack:', err.stack);
-    res.status(500).json({ error: 'Error fetching assignments', details: err.message });
+    res.status(500).json({ 
+      error: 'Error fetching assignments', 
+      details: err.message,
+      code: err.code 
+    });
   }
 });
 
@@ -2309,6 +2338,18 @@ app.get('/api/projects/assignments', async (req, res) => {
 app.get('/api/projects/:id/assignments', async (req, res) => {
   const { id } = req.params;
   try {
+    // Verificar si tabla existe
+    const tableCheck = await db.query(
+      `SELECT EXISTS (
+         SELECT FROM information_schema.tables 
+         WHERE table_name = 'project_assignments'
+       )`
+    );
+    
+    if (!tableCheck.rows[0].exists) {
+      return res.json([]);
+    }
+    
     // Verificar qué columnas existen
     const columnCheck = await db.query(
       `SELECT column_name FROM information_schema.columns 
@@ -2320,25 +2361,30 @@ app.get('/api/projects/:id/assignments', async (req, res) => {
     const hasAllocation = columnCheck.rows.some(r => r.column_name === 'allocation_percentage');
     const hasRate = columnCheck.rows.some(r => r.column_name === 'rate');
     
-    const otIdSelect = hasOtId ? 'pa.ot_id,' : 'NULL as ot_id,';
-    const allocationSelect = hasAllocation ? 'pa.allocation_percentage,' : '100 as allocation_percentage,';
-    const rateSelect = hasRate ? 'pa.rate,' : 'NULL as rate,';
+    const otIdCol = hasOtId ? 'pa.ot_id' : 'NULL as ot_id';
+    const allocationCol = hasAllocation ? 'pa.allocation_percentage' : '100 as allocation_percentage';
+    const rateCol = hasRate ? 'pa.rate' : 'NULL as rate';
     
     const result = await db.query(
-      `SELECT pa.id, pa.project_id, pa.employee_id, ${otIdSelect} pa.role, pa.start_date, pa.end_date, ${allocationSelect} ${rateSelect}
-              e.first_name, e.last_name, e.email, e.employee_code,
-              mc_position.item as position,
-              mc_area.item as area,
-              mc_entity.item as entity,
-              CASE 
-                WHEN pa.end_date IS NULL OR pa.end_date >= CURRENT_DATE THEN true
-                ELSE false
-              END as is_active,
-              CASE
-                WHEN pa.end_date IS NULL THEN 'Sin fecha fin'
-                WHEN pa.end_date >= CURRENT_DATE THEN 'Activo'
-                ELSE 'Finalizado'
-              END as status
+      `SELECT 
+         pa.id, pa.project_id, pa.employee_id, 
+         ${otIdCol},
+         pa.role, pa.start_date, pa.end_date, 
+         ${allocationCol},
+         ${rateCol},
+         e.first_name, e.last_name, e.email, e.employee_code,
+         mc_position.item as position,
+         mc_area.item as area,
+         mc_entity.item as entity,
+         CASE 
+           WHEN pa.end_date IS NULL OR pa.end_date >= CURRENT_DATE THEN true
+           ELSE false
+         END as is_active,
+         CASE
+           WHEN pa.end_date IS NULL THEN 'Sin fecha fin'
+           WHEN pa.end_date >= CURRENT_DATE THEN 'Activo'
+           ELSE 'Finalizado'
+         END as status
        FROM project_assignments pa
        INNER JOIN employees_v2 e ON pa.employee_id = e.id
        INNER JOIN projects p ON pa.project_id = p.id
