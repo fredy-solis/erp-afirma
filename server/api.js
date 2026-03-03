@@ -2224,8 +2224,17 @@ app.get('/api/projects', async (req, res) => {
 // Get all project assignments (for general assignments view) - MUST BE BEFORE /:id route
 app.get('/api/projects/assignments', async (req, res) => {
   try {
+    // Primero verificar si columna ot_id existe
+    const columnCheck = await db.query(
+      `SELECT column_name FROM information_schema.columns 
+       WHERE table_name = 'project_assignments' AND column_name = 'ot_id'`
+    );
+    const hasOtId = columnCheck.rows.length > 0;
+    
+    const otIdSelect = hasOtId ? 'pa.ot_id,' : 'NULL as ot_id,';
+    
     const result = await db.query(
-      `SELECT pa.id, pa.project_id, pa.employee_id, pa.ot_id, pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
+      `SELECT pa.id, pa.project_id, pa.employee_id, ${otIdSelect} pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
               e.first_name, e.last_name, e.email, e.employee_code,
               p.name as project_name,
               mc_position.item as position,
@@ -2250,8 +2259,9 @@ app.get('/api/projects/assignments', async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    console.error('Error fetching all assignments:', err);
-    res.status(500).json({ error: 'Error fetching assignments' });
+    console.error('❌ Error fetching all assignments:', err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Error fetching assignments', details: err.message });
   }
 });
 
@@ -2259,8 +2269,16 @@ app.get('/api/projects/assignments', async (req, res) => {
 app.get('/api/projects/:id/assignments', async (req, res) => {
   const { id } = req.params;
   try {
+    // Verificar si columna ot_id existe
+    const columnCheck = await db.query(
+      `SELECT column_name FROM information_schema.columns 
+       WHERE table_name = 'project_assignments' AND column_name = 'ot_id'`
+    );
+    const hasOtId = columnCheck.rows.length > 0;
+    const otIdSelect = hasOtId ? 'pa.ot_id,' : 'NULL as ot_id,';
+    
     const result = await db.query(
-      `SELECT pa.id, pa.project_id, pa.employee_id, pa.ot_id, pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
+      `SELECT pa.id, pa.project_id, pa.employee_id, ${otIdSelect} pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
               e.first_name, e.last_name, e.email, e.employee_code,
               mc_position.item as position,
               mc_area.item as area,
@@ -2286,8 +2304,9 @@ app.get('/api/projects/:id/assignments', async (req, res) => {
     );
     res.json(result.rows);
   } catch (err) {
-    console.error('Error fetching project assignments:', err);
-    res.status(500).json({ error: 'Error fetching project assignments' });
+    console.error('❌ Error fetching project assignments:', err);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Error fetching project assignments', details: err.message });
   }
 });
 

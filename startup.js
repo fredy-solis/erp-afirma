@@ -130,8 +130,11 @@ async function runMigrations() {
           console.log(`   ℹ️  ${migration} ya aplicada`);
           skippedCount++;
         } else {
-          // Para otros errores, log pero no fallar el inicio
-          console.log(`   ⚠️  ${migration} error (continuando): ${err.message}`);
+          // Para otros errores, log DETALLADO pero no fallar el inicio
+          console.error(`   ❌ ${migration} FALLÓ:`);
+          console.error(`      Error: ${err.message}`);
+          console.error(`      Code: ${err.code}`);
+          console.error(`      Detail: ${err.detail || 'N/A'}`);
           skippedCount++;
         }
       }
