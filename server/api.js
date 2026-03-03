@@ -2289,14 +2289,20 @@ app.get('/api/projects/assignments', async (req, res) => {
     const allocationCol = hasAllocation ? 'pa.allocation_percentage' : '100 as allocation_percentage';
     const rateCol = hasRate ? 'pa.rate' : 'NULL as rate';
     
-    const result = await db.query(
-      `SELECT 
-         pa.id, pa.project_id, pa.employee_id, 
+    const sqlQuery = `SELECT 
+         pa.id, 
+         pa.project_id, 
+         pa.employee_id, 
          ${otIdCol},
-         pa.role, pa.start_date, pa.end_date, 
+         pa.role_name, 
+         pa.start_date, 
+         pa.end_date, 
          ${allocationCol},
          ${rateCol},
-         e.first_name, e.last_name, e.email, e.employee_code,
+         e.first_name, 
+         e.last_name, 
+         e.email, 
+         e.employee_code,
          p.name as project_name,
          mc_position.item as position,
          mc_area.item as area,
@@ -2316,8 +2322,11 @@ app.get('/api/projects/assignments', async (req, res) => {
        LEFT JOIN mastercode mc_position ON e.position_id = mc_position.id
        LEFT JOIN mastercode mc_area ON e.area_id = mc_area.id
        LEFT JOIN mastercode mc_entity ON e.entity_id = mc_entity.id
-       ORDER BY pa.start_date DESC, e.first_name, e.last_name`
-    );
+       ORDER BY pa.start_date DESC, e.first_name, e.last_name`;
+    
+    console.log('📝 SQL Query:', sqlQuery);
+    
+    const result = await db.query(sqlQuery);
     
     console.log(`✅ Assignments found: ${result.rows.length}`);
     res.json(result.rows);
@@ -2365,14 +2374,20 @@ app.get('/api/projects/:id/assignments', async (req, res) => {
     const allocationCol = hasAllocation ? 'pa.allocation_percentage' : '100 as allocation_percentage';
     const rateCol = hasRate ? 'pa.rate' : 'NULL as rate';
     
-    const result = await db.query(
-      `SELECT 
-         pa.id, pa.project_id, pa.employee_id, 
+    const sqlQuery = `SELECT 
+         pa.id, 
+         pa.project_id, 
+         pa.employee_id, 
          ${otIdCol},
-         pa.role, pa.start_date, pa.end_date, 
+         pa.role_name, 
+         pa.start_date, 
+         pa.end_date, 
          ${allocationCol},
          ${rateCol},
-         e.first_name, e.last_name, e.email, e.employee_code,
+         e.first_name, 
+         e.last_name, 
+         e.email, 
+         e.employee_code,
          mc_position.item as position,
          mc_area.item as area,
          mc_entity.item as entity,
@@ -2392,9 +2407,9 @@ app.get('/api/projects/:id/assignments', async (req, res) => {
        LEFT JOIN mastercode mc_area ON e.area_id = mc_area.id
        LEFT JOIN mastercode mc_entity ON e.entity_id = mc_entity.id
        WHERE pa.project_id = $1
-       ORDER BY pa.start_date DESC, e.first_name, e.last_name`,
-      [id]
-    );
+       ORDER BY pa.start_date DESC, e.first_name, e.last_name`;
+    
+    const result = await db.query(sqlQuery, [id]);
     res.json(result.rows);
   } catch (err) {
     console.error('❌ Error fetching project assignments:', err);
