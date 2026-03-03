@@ -233,8 +233,42 @@ function isFutureDate(dateStr) {
   return dd > td;
 }
 
-// Health
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+// Health check mejorado
+app.get('/api/health', async (req, res) => {
+  try {
+    // Verificar conexión DB
+    await db.query('SELECT NOW()');
+    
+    // Verificar columnas críticas en project_assignments
+    const columns = await db.query(
+      `SELECT column_name FROM information_schema.columns 
+       WHERE table_name = 'project_assignments' 
+       AND column_name IN ('ot_id', 'allocation_percentage', 'rate')`
+    );
+    
+    const hasOtId = columns.rows.some(r => r.column_name === 'ot_id');
+    const hasAllocation = columns.rows.some(r => r.column_name === 'allocation_percentage');
+    const hasRate = columns.rows.some(r => r.column_name === 'rate');
+    
+    res.json({ 
+      status: 'ok',
+      database: 'connected',
+      schema: {
+        project_assignments: {
+          ot_id: hasOtId,
+          allocation_percentage: hasAllocation,
+          rate: hasRate
+        }
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ 
+      status: 'error', 
+      database: 'disconnected',
+      error: err.message 
+    });
+  }
+});
 
 // ========== AUTHENTICATION ENDPOINTS ==========
 
@@ -2224,17 +2258,23 @@ app.get('/api/projects', async (req, res) => {
 // Get all project assignments (for general assignments view) - MUST BE BEFORE /:id route
 app.get('/api/projects/assignments', async (req, res) => {
   try {
-    // Primero verificar si columna ot_id existe
+    // Verificar qué columnas existen
     const columnCheck = await db.query(
       `SELECT column_name FROM information_schema.columns 
-       WHERE table_name = 'project_assignments' AND column_name = 'ot_id'`
+       WHERE table_name = 'project_assignments' 
+       AND column_name IN ('ot_id', 'allocation_percentage', 'rate')`
     );
-    const hasOtId = columnCheck.rows.length > 0;
+    
+    const hasOtId = columnCheck.rows.some(r => r.column_name === 'ot_id');
+    const hasAllocation = columnCheck.rows.some(r => r.column_name === 'allocation_percentage');
+    const hasRate = columnCheck.rows.some(r => r.column_name === 'rate');
     
     const otIdSelect = hasOtId ? 'pa.ot_id,' : 'NULL as ot_id,';
+    const allocationSelect = hasAllocation ? 'pa.allocation_percentage,' : '100 as allocation_percentage,';
+    const rateSelect = hasRate ? 'pa.rate,' : 'NULL as rate,';
     
     const result = await db.query(
-      `SELECT pa.id, pa.project_id, pa.employee_id, ${otIdSelect} pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
+      `SELECT pa.id, pa.project_id, pa.employee_id, ${otIdSelect} pa.role, pa.start_date, pa.end_date, ${allocationSelect} ${rateSelect}
               e.first_name, e.last_name, e.email, e.employee_code,
               p.name as project_name,
               mc_position.item as position,
@@ -2269,16 +2309,23 @@ app.get('/api/projects/assignments', async (req, res) => {
 app.get('/api/projects/:id/assignments', async (req, res) => {
   const { id } = req.params;
   try {
-    // Verificar si columna ot_id existe
+    // Verificar qué columnas existen
     const columnCheck = await db.query(
       `SELECT column_name FROM information_schema.columns 
-       WHERE table_name = 'project_assignments' AND column_name = 'ot_id'`
+       WHERE table_name = 'project_assignments' 
+       AND column_name IN ('ot_id', 'allocation_percentage', 'rate')`
     );
-    const hasOtId = columnCheck.rows.length > 0;
+    
+    const hasOtId = columnCheck.rows.some(r => r.column_name === 'ot_id');
+    const hasAllocation = columnCheck.rows.some(r => r.column_name === 'allocation_percentage');
+    const hasRate = columnCheck.rows.some(r => r.column_name === 'rate');
+    
     const otIdSelect = hasOtId ? 'pa.ot_id,' : 'NULL as ot_id,';
+    const allocationSelect = hasAllocation ? 'pa.allocation_percentage,' : '100 as allocation_percentage,';
+    const rateSelect = hasRate ? 'pa.rate,' : 'NULL as rate,';
     
     const result = await db.query(
-      `SELECT pa.id, pa.project_id, pa.employee_id, ${otIdSelect} pa.role, pa.start_date, pa.end_date, pa.allocation_percentage, pa.rate,
+      `SELECT pa.id, pa.project_id, pa.employee_id, ${otIdSelect} pa.role, pa.start_date, pa.end_date, ${allocationSelect} ${rateSelect}
               e.first_name, e.last_name, e.email, e.employee_code,
               mc_position.item as position,
               mc_area.item as area,
