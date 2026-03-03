@@ -3199,9 +3199,9 @@ app.post('/api/projects/:id/assignments', async (req, res) => {
     
     // Si no hay conflictos, proceder con la asignación
     const result = await db.query(
-      `INSERT INTO project_assignments (project_id, employee_id, ot_id, role, start_date, end_date, allocation_percentage, rate)
+      `INSERT INTO project_assignments (project_id, employee_id, ot_id, role_name, start_date, end_date, allocation_percentage, rate)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, project_id, employee_id, ot_id, role, start_date, end_date, allocation_percentage, rate, created_at`,
+       RETURNING id, project_id, employee_id, ot_id, role_name, start_date, end_date, allocation_percentage, rate, created_at`,
       [id, employee_id, ot_id || null, role || null, start_date || null, end_date || null, allocation_percentage || 100, rate || 0]
     );
     res.status(201).json(result.rows[0]);
@@ -3220,7 +3220,7 @@ app.put('/api/projects/assignments/:assignmentId', async (req, res) => {
     const result = await db.query(
       `UPDATE project_assignments 
        SET ot_id = COALESCE($1, ot_id),
-           role = COALESCE($2, role),
+           role_name = COALESCE($2, role_name),
            start_date = COALESCE($3, start_date),
            end_date = COALESCE($4, end_date),
            allocation_percentage = COALESCE($5, allocation_percentage),
