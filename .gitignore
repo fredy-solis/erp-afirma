@@ -105,9 +105,14 @@ backup/
 
 # Scripts de testing y debugging
 test-*.js
+test-*.ps1
 debug-*.js
 diagnostico.js
 simple-*.js
+verify-*.js
+run-migration-*.js
+run-migrations-*.js
+run-production-*.js
 
 # Scripts de desarrollo y utilidades
 apply-*.js
@@ -128,6 +133,9 @@ add-*.js
 start-api.ps1
 start-local.ps1
 deploy-gcp.sh
+deploy-manual*.bat
+deploy-manual*.ps1
+deploy-production*.bat
 run-migrations-gcp.ps1
 auth-and-deploy.bat
 authorize-and-migrate.*
@@ -163,6 +171,7 @@ NORMALIZATION_REPORT.md
 DATABASE_SCHEMA.md
 TECNOLOGIAS.md
 REFERENCIA-*.md
+REFACTOR*.md
 DOCUMENTACION*.md
 PROJECT_*.md
 FINAL_*.md
@@ -213,7 +222,12 @@ app.yaml
 service.yaml
 cloudrun-service.yaml
 cloudbuild.yaml
+cloudbuild-manual.yaml
 Procfile
+
+# Uploads y archivos públicos
+public/
+uploads/
 
 # Keep only essential files for production:
 # - server/api.js
