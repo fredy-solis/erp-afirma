@@ -24,22 +24,20 @@ if (!isCloudSQL) {
 }
 
 const migrations = [
-  // Tablas base y empleados
+  // Tablas base
   '001_create_employees.sql',
   '002_create_candidates.sql',
   '003_create_departments.sql',
+  '003_create_mastercode.sql',
   '004_create_positions.sql',
-  '007_rename_departments_to_entities.sql',
   '005_create_employees_v2.sql',
   '006_create_employee_relations.sql',
+  '007_rename_departments_to_entities.sql',
   '008_create_catalog_tables.sql',
-  '003_create_mastercode.sql',
   '009_create_employee_extended_info.sql',
   '010_update_employees_mastercode.sql',
   '011_fix_foreign_keys.sql',
   '012_add_address_fields.sql',
-  
-  // Inventario y equipos
   '012_create_inventory.sql',
   '013_add_expediente_fields.sql',
   '014_create_equipment.sql',
@@ -54,42 +52,29 @@ const migrations = [
   '019_create_projects.sql',
   '020_create_project_assignments.sql',
   '021_create_project_indexes.sql',
-  '022_create_project_assignment_indexes.sql',
-  
-  // Candidatos y reclutamiento
   '021_fix_candidates_nullable.sql',
+  '022_create_project_assignment_indexes.sql',
   '023_add_recruitment_tracking.sql',
-  '025_add_cv_url_to_candidates.sql',
-  '038_add_salary_expectation_to_candidates.sql',
-  
-  // Autenticación y vacantes
   '023_create_authentication_tables.sql',
   '024_create_job_openings.sql',
-  '037_add_celula_area_file_to_job_openings.sql',
-  
-  // Órdenes de trabajo
   '024_create_orders_of_work.sql',
+  '025_add_cv_url_to_candidates.sql',
   '025_add_orders_of_work_extended_fields.sql',
-  '029_create_project_ot_relations.sql',
-  '030_remove_duplicate_ot_columns.sql',
-  '032_add_costo_ot_to_orders_of_work.sql',
-  '033_fix_null_costo_ot.sql',
-  '034_add_ot_id_to_project_assignments.sql',
-  
-  // Ajustes y correcciones
   '026_add_rate_to_project_assignments.sql',
   '027_remove_duplicate_entity_fk.sql',
   '028_fix_entity_fk_to_mastercode.sql',
-  
-  // Proyectos avanzados
+  '029_create_project_ot_relations.sql',
+  '030_remove_duplicate_ot_columns.sql',
   '031_add_celula_and_costo_to_projects.sql',
-  
-  // Licitaciones y contactos comerciales
+  '032_add_costo_ot_to_orders_of_work.sql',
+  '033_fix_null_costo_ot.sql',
+  '034_add_ot_id_to_project_assignments.sql',
   '035_create_licitaciones.sql',
   '036_create_commercial_contacts.sql',
-  
-  // Correcciones de usuarios
-  '039_rename_role_to_role_name.sql'
+  '037_add_celula_area_file_to_job_openings.sql',
+  '038_add_salary_expectation_to_candidates.sql',
+  '039_rename_role_to_role_name.sql',
+  '040_grant_all_permissions.sql'
 ];
 
 async function runMigrations() {

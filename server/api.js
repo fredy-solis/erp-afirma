@@ -669,12 +669,24 @@ app.patch('/api/candidates/:id', async (req, res) => {
   const id = req.params.id;
   const { status } = req.body;
   try {
+    console.log(`[PATCH /api/candidates/${id}] Updating status to: ${status}`);
     const result = await db.query('UPDATE candidates SET status=$1 WHERE id = $2 RETURNING *', [status, id]);
-    if (result.rowCount === 0) return res.status(404).json({ error: 'Candidate not found' });
+    if (result.rowCount === 0) {
+      console.log(`[PATCH /api/candidates/${id}] Candidate not found`);
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
+    console.log(`[PATCH /api/candidates/${id}] Successfully updated`);
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error deleting candidate', err);
-    res.status(500).json({ error: 'Error deleting candidate' });
+    console.error(`[PATCH /api/candidates/${id}] Error:`, err.message);
+    console.error(`[PATCH /api/candidates/${id}] Error code:`, err.code);
+    console.error(`[PATCH /api/candidates/${id}] Error detail:`, err.detail);
+    console.error(`[PATCH /api/candidates/${id}] Full error:`, err);
+    res.status(500).json({ 
+      error: 'Error updating candidate',
+      detail: err.message,
+      code: err.code
+    });
   }
 });
 
