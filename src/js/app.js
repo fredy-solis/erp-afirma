@@ -1359,6 +1359,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     function closeJobOpeningModal() {
         jobOpeningModal.style.display = 'none';
         jobOpeningForm.reset();
+        // Limpiar contactos comerciales al cerrar el modal
+        clearCommercialContacts();
     }
 
     async function confirmCloseJobOpeningModal(e) {
@@ -1403,110 +1405,200 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ============ COMMERCIAL CONTACTS MANAGEMENT ============
-    let contactCounter = 0;
+    let commercialContactsList = []; // Lista temporal de contactos
 
-    // Agregar contacto comercial
-    function addCommercialContact(contactData = null) {
-        const container = document.getElementById('commercial-contacts-container');
-        const template = document.getElementById('commercial-contact-template');
+    // Función para renderizar la lista de contactos
+    function renderCommercialContacts() {
+        const listContainer = document.getElementById('commercial-contacts-list');
         const noContactsMsg = document.getElementById('no-contacts-message');
+        const contactsCount = document.getElementById('contacts-count');
         
-        if (!container || !template) return;
+        if (!listContainer) return;
+
+        // Actualizar contador
+        if (contactsCount) {
+            contactsCount.textContent = commercialContactsList.length;
+        }
+
+        // Si no hay contactos, mostrar mensaje
+        if (commercialContactsList.length === 0) {
+            if (noContactsMsg) {
+                noContactsMsg.style.display = 'block';
+            }
+            // Limpiar lista excepto el mensaje
+            const items = listContainer.querySelectorAll('.contact-list-item');
+            items.forEach(item => item.remove());
+            return;
+        }
 
         // Ocultar mensaje de "no hay contactos"
         if (noContactsMsg) {
             noContactsMsg.style.display = 'none';
         }
 
-        // Clonar template
-        const clone = template.content.cloneNode(true);
-        const row = clone.querySelector('.commercial-contact-row');
-        
-        // Asignar ID único
-        contactCounter++;
-        row.dataset.contactId = contactCounter;
+        // Limpiar lista actual
+        const items = listContainer.querySelectorAll('.contact-list-item');
+        items.forEach(item => item.remove());
 
-        // Si hay datos, rellenar los campos
-        if (contactData) {
-            row.querySelector('.contact-full-name').value = contactData.full_name || '';
-            row.querySelector('.contact-email').value = contactData.email || '';
-            row.querySelector('.contact-phone').value = contactData.phone || '';
-            row.querySelector('.contact-location').value = contactData.location || '';
-            // Si tiene ID de DB, guardarlo
-            if (contactData.id) {
-                row.dataset.dbId = contactData.id;
-            }
-        }
-
-        // Event listener para eliminar
-        row.querySelector('.remove-commercial-contact').addEventListener('click', function() {
-            row.remove();
-            // Si no quedan contactos, mostrar mensaje
-            const remainingContacts = container.querySelectorAll('.commercial-contact-row');
-            if (remainingContacts.length === 0 && noContactsMsg) {
-                noContactsMsg.style.display = 'block';
-            }
+        // Renderizar cada contacto
+        commercialContactsList.forEach((contact, index) => {
+            const item = document.createElement('div');
+            item.className = 'contact-list-item';
+            item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 15px;border-bottom:1px solid #e5e7eb;transition:background 0.2s';
+            
+            item.innerHTML = `
+                <div style="flex:1">
+                    <div style="font-weight:600;color:#374151;margin-bottom:4px">
+                        👤 ${contact.full_name}
+                    </div>
+                    <div style="font-size:13px;color:#6b7280">
+                        <span style="margin-right:15px">📧 ${contact.email}</span>
+                        ${contact.phone ? `<span style="margin-right:15px">📱 ${contact.phone}</span>` : ''}
+                        ${contact.location ? `<span>📍 ${contact.location}</span>` : ''}
+                    </div>
+                </div>
+                <button type="button" onclick="window.removeCommercialContact(${index})" 
+                    style="background:#ef4444;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px;transition:background 0.2s"
+                    onmouseover="this.style.background='#dc2626'" 
+                    onmouseout="this.style.background='#ef4444'"
+                    title="Eliminar contacto">
+                    🗑️ Eliminar
+                </button>
+            `;
+            
+            listContainer.appendChild(item);
         });
-
-        container.appendChild(clone);
     }
 
-    // Obtener datos de todos los contactos del formulario
-    function getCommercialContactsData() {
-        const container = document.getElementById('commercial-contacts-container');
-        if (!container) return [];
+    // Función para agregar contacto desde el formulario fijo
+    function addCommercialContactFromForm() {
+        const nameInput = document.getElementById('new-contact-name');
+        const emailInput = document.getElementById('new-contact-email');
+        const phoneInput = document.getElementById('new-contact-phone');
+        const locationInput = document.getElementById('new-contact-location');
+        
+        if (!nameInput || !emailInput) return;
 
-        const rows = container.querySelectorAll('.commercial-contact-row');
-        const contacts = [];
+        const fullName = nameInput.value.trim();
+        const email = emailInput.value.trim().toLowerCase();
+        const phone = phoneInput.value.trim();
+        const location = locationInput.value.trim();
 
-        rows.forEach(row => {
-            const fullName = row.querySelector('.contact-full-name')?.value.trim();
-            const email = row.querySelector('.contact-email')?.value.trim().toLowerCase();
-            const phone = row.querySelector('.contact-phone')?.value.trim();
-            const location = row.querySelector('.contact-location')?.value.trim();
+        // Validación
+        if (!fullName || !email) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Campos requeridos',
+                text: 'El nombre completo y el email son obligatorios'
+            });
+            return;
+        }
 
-            // Solo agregar si tiene al menos nombre y email
-            if (fullName && email) {
-                const contact = {
-                    full_name: fullName,
-                    email: email,
-                    phone: phone || null,
-                    location: location || null
-                };
-                
-                // Si tiene ID de DB (para updates), incluirlo
-                if (row.dataset.dbId) {
-                    contact.id = parseInt(row.dataset.dbId);
+        // Validar formato de email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Email inválido',
+                text: 'Por favor ingresa un email válido'
+            });
+            return;
+        }
+
+        // Verificar si el email ya existe en la lista
+        const emailExists = commercialContactsList.some(c => c.email === email);
+        if (emailExists) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Email duplicado',
+                text: 'Ya existe un contacto con este email'
+            });
+            return;
+        }
+
+        // Agregar a la lista
+        commercialContactsList.push({
+            full_name: fullName,
+            email: email,
+            phone: phone || null,
+            location: location || null
+        });
+
+        // Limpiar formulario
+        nameInput.value = '';
+        emailInput.value = '';
+        phoneInput.value = '';
+        locationInput.value = '';
+
+        // Re-renderizar lista
+        renderCommercialContacts();
+
+        // Feedback visual
+        Swal.fire({
+            icon: 'success',
+            title: 'Contacto agregado',
+            text: `${fullName} ha sido agregado a la lista`,
+            timer: 1500,
+            showConfirmButton: false
+        });
+
+        // Focus en el campo de nombre para agregar otro
+        nameInput.focus();
+    }
+
+    // Función para eliminar contacto de la lista (expuesta globalmente)
+    window.removeCommercialContact = function(index) {
+        if (index >= 0 && index < commercialContactsList.length) {
+            const contact = commercialContactsList[index];
+            
+            Swal.fire({
+                title: '¿Eliminar contacto?',
+                text: `Se eliminará ${contact.full_name} de la lista`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    commercialContactsList.splice(index, 1);
+                    renderCommercialContacts();
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Contacto eliminado',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
                 }
-                
-                contacts.push(contact);
-            }
-        });
-
-        return contacts;
-    }
-
-    // Limpiar contactos del formulario
-    function clearCommercialContacts() {
-        const container = document.getElementById('commercial-contacts-container');
-        const noContactsMsg = document.getElementById('no-contacts-message');
-        
-        if (!container) return;
-
-        // Eliminar todos los contactos
-        const rows = container.querySelectorAll('.commercial-contact-row');
-        rows.forEach(row => row.remove());
-
-        // Mostrar mensaje de "no hay contactos"
-        if (noContactsMsg) {
-            noContactsMsg.style.display = 'block';
+            });
         }
+    };
 
-        // Reset counter
-        contactCounter = 0;
+    // Obtener datos de todos los contactos (para enviar al guardar)
+    function getCommercialContactsData() {
+        return commercialContactsList;
     }
 
-    // Cargar contactos desde API
+    // Limpiar contactos (cuando se cierra el modal o se crea nueva vacante)
+    function clearCommercialContacts() {
+        commercialContactsList = [];
+        renderCommercialContacts();
+        
+        // Limpiar también los inputs del formulario
+        const nameInput = document.getElementById('new-contact-name');
+        const emailInput = document.getElementById('new-contact-email');
+        const phoneInput = document.getElementById('new-contact-phone');
+        const locationInput = document.getElementById('new-contact-location');
+        
+        if (nameInput) nameInput.value = '';
+        if (emailInput) emailInput.value = '';
+        if (phoneInput) phoneInput.value = '';
+        if (locationInput) locationInput.value = '';
+    }
+
+    // Cargar contactos desde API (cuando se edita una vacante)
     async function loadCommercialContacts(jobOpeningId) {
         try {
             const url = window.getApiUrl 
@@ -1521,11 +1613,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const contacts = await res.json();
             
-            // Limpiar contactos existentes
-            clearCommercialContacts();
+            // Limpiar lista actual
+            commercialContactsList = [];
             
-            // Agregar cada contacto al formulario
-            contacts.forEach(contact => addCommercialContact(contact));
+            // Agregar contactos de la DB a la lista
+            contacts.forEach(contact => {
+                commercialContactsList.push({
+                    id: contact.id, // Mantener el ID de DB para actualizaciones
+                    full_name: contact.full_name,
+                    email: contact.email,
+                    phone: contact.phone,
+                    location: contact.location
+                });
+            });
+            
+            // Renderizar lista
+            renderCommercialContacts();
             
         } catch (err) {
             console.error('Error cargando contactos comerciales:', err);
@@ -1534,7 +1637,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Event listener para botón "Agregar Contacto"
     const addContactBtn = document.getElementById('add-commercial-contact');
-    addContactBtn?.addEventListener('click', () => addCommercialContact());
+    addContactBtn?.addEventListener('click', () => addCommercialContactFromForm());
+
+    // Event listener para Enter en los campos del formulario
+    ['new-contact-name', 'new-contact-email', 'new-contact-phone', 'new-contact-location'].forEach(inputId => {
+        const input = document.getElementById(inputId);
+        input?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addCommercialContactFromForm();
+            }
+        });
+    });
 
     // ============ END COMMERCIAL CONTACTS MANAGEMENT ============
 
@@ -1751,14 +1865,35 @@ document.addEventListener('DOMContentLoaded', async () => {
                 });
             }
 
-            // Populate projects
+            // Populate projects (with celula_id as data attribute)
             if (projectSelect) {
                 projectSelect.innerHTML = '<option value="">Seleccionar proyecto...</option>';
                 projects.forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
                     opt.textContent = p.name;
+                    // Store celula_id for auto-selection
+                    if (p.celula_id) {
+                        opt.setAttribute('data-celula-id', p.celula_id);
+                    }
                     projectSelect.appendChild(opt);
+                });
+                
+                // Add listener to auto-select celula when project is selected
+                projectSelect.addEventListener('change', function() {
+                    const selectedOption = this.options[this.selectedIndex];
+                    const celulaId = selectedOption.getAttribute('data-celula-id');
+                    const cellSelect = document.getElementById('employee-cell');
+                    
+                    if (celulaId && cellSelect) {
+                        // Auto-select the celula
+                        cellSelect.value = celulaId;
+                        // Disable celula select when project is selected
+                        cellSelect.disabled = this.value !== '';
+                    } else if (cellSelect) {
+                        // Re-enable celula select if no project selected
+                        cellSelect.disabled = false;
+                    }
                 });
             }
 
@@ -1884,12 +2019,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         // Configurar título según modo
         const titleMap = {
-            readOnly: 'Ver Información del Empleado',
+            readOnly: '👁️ Ver Información del Empleado',
             edit: 'Actualizar Empleado',
             new: 'Agregar Empleado'
         };
         const mode = isReadOnly ? 'readOnly' : (isEdit ? 'edit' : 'new');
         document.getElementById('modal-title').textContent = titleMap[mode];
+        
+        // Guardar estado readOnly en el modal
+        modal.dataset.readOnly = isReadOnly ? 'true' : 'false';
         
         modal.style.display = 'flex';
         if (!isEdit) {
@@ -1899,30 +2037,60 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Always reload catalogs to ensure they're up to date
         await loadCatalogDropdowns();
         
-        // Deshabilitar campos si es modo solo lectura
+        // Configurar botones según modo
+        const submitBtn = document.getElementById('employee-submit');
+        const cancelBtn = document.getElementById('employee-cancel');
+        
+        // Configurar botones según modo (la aplicación de readOnly se hará después de populateForm)
         if (isReadOnly) {
-            const form = document.getElementById('employee-form');
-            const inputs = form.querySelectorAll('input, select, textarea');
-            inputs.forEach(input => {
-                input.disabled = true;
-                input.style.opacity = '0.7';
-            });
-            
             // Ocultar botón de guardar
-            const saveBtn = document.getElementById('save-employee-btn');
-            if (saveBtn) saveBtn.style.display = 'none';
+            if (submitBtn) submitBtn.style.display = 'none';
+            
+            // Cambiar botón Cancelar a Cerrar
+            if (cancelBtn) {
+                cancelBtn.textContent = 'Cerrar';
+                cancelBtn.style.background = '#6b7280';
+            }
         } else {
             // Habilitar campos en modo edición/creación
             const form = document.getElementById('employee-form');
+            
+            // Remover cualquier div de solo lectura previo
+            const readOnlyFields = form.querySelectorAll('.readonly-field');
+            readOnlyFields.forEach(field => field.remove());
+            
+            // Restaurar y habilitar todos los campos
             const inputs = form.querySelectorAll('input, select, textarea');
             inputs.forEach(input => {
+                input.style.display = '';
                 input.disabled = false;
+                input.style.color = '';
                 input.style.opacity = '1';
+                input.style.backgroundColor = '';
             });
             
             // Mostrar botón de guardar
-            const saveBtn = document.getElementById('save-employee-btn');
-            if (saveBtn) saveBtn.style.display = 'inline-block';
+            if (submitBtn) submitBtn.style.display = 'inline-block';
+            
+            // Restaurar botón Cancelar
+            if (cancelBtn) {
+                cancelBtn.textContent = 'Cancelar';
+                cancelBtn.style.background = '';
+            }
+        }
+        
+        // Ocultar/mostrar pestaña de Asignaciones según el modo
+        const assignmentsTab = document.querySelector('.tab-button[data-tab="asignaciones"]');
+        const assignmentsContent = document.getElementById('tab-asignaciones');
+        
+        if (isEdit) {
+            // Modo edición/visualización: mostrar pestaña de Asignaciones
+            if (assignmentsTab) assignmentsTab.style.display = '';
+            if (assignmentsContent) assignmentsContent.style.display = '';
+        } else {
+            // Modo agregar nuevo: ocultar pestaña de Asignaciones
+            if (assignmentsTab) assignmentsTab.style.display = 'none';
+            if (assignmentsContent) assignmentsContent.style.display = 'none';
         }
         
         // Activar primera pestaña automáticamente con más tiempo para el modo editar
@@ -1933,8 +2101,62 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, delay);
     }
 
+    // Función para aplicar modo solo lectura DESPUÉS de poblar el formulario
+    function applyReadOnlyMode() {
+        const form = document.getElementById('employee-form');
+        if (!form) return;
+        
+        // Reemplazar selects con divs de solo lectura
+        const selects = form.querySelectorAll('select');
+        selects.forEach(select => {
+            const selectedOption = select.options[select.selectedIndex];
+            const displayValue = selectedOption && selectedOption.value ? selectedOption.textContent : 'Sin datos';
+            
+            // Crear div de reemplazo
+            const readOnlyDiv = document.createElement('div');
+            readOnlyDiv.className = 'readonly-field';
+            readOnlyDiv.textContent = displayValue;
+            readOnlyDiv.style.cssText = 'padding:12px; background:#f5f5f5; border:1px solid #e5e7eb; border-radius:6px; color:#000000; min-height:44px; display:flex; align-items:center;';
+            readOnlyDiv.dataset.originalSelectId = select.id;
+            
+            // Insertar después del select y ocultar select
+            select.style.display = 'none';
+            select.parentNode.insertBefore(readOnlyDiv, select.nextSibling);
+        });
+        
+        // Procesar inputs y textareas
+        const inputs = form.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+            const value = input.value?.trim();
+            
+            if (!value) {
+                // Si está vacío, reemplazar con "Sin datos"
+                const readOnlyDiv = document.createElement('div');
+                readOnlyDiv.className = 'readonly-field';
+                readOnlyDiv.textContent = 'Sin datos';
+                readOnlyDiv.style.cssText = 'padding:12px; background:#f5f5f5; border:1px solid #e5e7eb; border-radius:6px; color:#999999; min-height:44px; display:flex; align-items:center; font-style:italic;';
+                readOnlyDiv.dataset.originalInputId = input.id;
+                
+                input.style.display = 'none';
+                input.parentNode.insertBefore(readOnlyDiv, input.nextSibling);
+            } else {
+                // Si tiene valor, solo deshabilitar y estilizar
+                input.disabled = true;
+                input.style.color = '#000000';
+                input.style.opacity = '1';
+                input.style.backgroundColor = '#f5f5f5';
+            }
+        });
+    }
+    
+    // Exponer función globalmente
+    window.applyReadOnlyMode = applyReadOnlyMode;
+
     async function closeModal(skipConfirmation = false){
-        if (!skipConfirmation) {
+        // Si está en modo solo lectura, cerrar sin confirmación
+        const isReadOnly = modal.dataset.readOnly === 'true';
+        
+        if (!skipConfirmation && !isReadOnly) {
             const result = await Swal.fire({
                 title: '¿Cancelar edición?',
                 text: 'Los cambios no guardados se perderán',
@@ -1947,7 +2169,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
             if (!result.isConfirmed) return;
         }
+        
+        // Limpiar campos de solo lectura antes de cerrar
+        const form = document.getElementById('employee-form');
+        if (form) {
+            const readOnlyFields = form.querySelectorAll('.readonly-field');
+            readOnlyFields.forEach(field => field.remove());
+            
+            // Restaurar visibilidad de todos los campos
+            const inputs = form.querySelectorAll('input, select, textarea');
+            inputs.forEach(input => {
+                input.style.display = '';
+                input.disabled = false;
+                input.style.color = '';
+                input.style.opacity = '';
+                input.style.backgroundColor = '';
+            });
+        }
+        
         modal.style.display = 'none';
+        modal.dataset.readOnly = 'false';
         window.clearInputFields();
     }
 
@@ -2008,6 +2249,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
             
+            // Load Assignments data if needed
+            if (tabName === 'asignaciones') {
+                const employeeId = document.getElementById('employee-id')?.value;
+                if (employeeId) {
+                    console.log('📋 Loading assignments data for employee:', employeeId);
+                    loadEmployeeAssignments(employeeId);
+                }
+            }
+            
             return true;
         } catch (error) {
             console.error('❌ Error in switchTabDirect:', error);
@@ -2055,7 +2305,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Load employee contracts for HR tab
     async function loadEmployeeContracts(employeeId) {
         if (!employeeId) {
-            document.getElementById('contracts-list').innerHTML = '<p><em>Selecciona un empleado para ver su historial de contratos</em></p>';
+            document.getElementById('contracts-list').innerHTML = '<p><em>No hay contratos aún</em></p>';
             return;
         }
 
@@ -2065,7 +2315,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const contractsList = document.getElementById('contracts-list');
             
             if (contracts.length === 0) {
-                contractsList.innerHTML = '<p><em>No hay contratos registrados</em></p>';
+                contractsList.innerHTML = '<p><em>No hay contratos aún</em></p>';
                 return;
             }
 
@@ -2110,6 +2360,116 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (error) {
             console.error('Error loading banking info:', error);
+        }
+    }
+
+    // Load employee assignments history for Asignaciones tab
+    async function loadEmployeeAssignments(employeeId) {
+        const loadingEl = document.getElementById('employee-assignments-loading');
+        const emptyEl = document.getElementById('employee-assignments-empty');
+        const containerEl = document.getElementById('employee-assignments-container');
+        const listEl = document.getElementById('employee-assignments-list');
+        
+        if (!employeeId) {
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (emptyEl) emptyEl.style.display = 'block';
+            if (containerEl) containerEl.style.display = 'none';
+            return;
+        }
+
+        try {
+            // Show loading
+            if (loadingEl) loadingEl.style.display = 'block';
+            if (emptyEl) emptyEl.style.display = 'none';
+            if (containerEl) containerEl.style.display = 'none';
+            
+            const url = window.getApiUrl ? window.getApiUrl(`/api/employees/${employeeId}/assignments`) : `/api/employees/${employeeId}/assignments`;
+            const response = await fetch(url);
+            
+            if (!response.ok) throw new Error('Error al cargar asignaciones');
+            
+            const data = await response.json();
+            
+            // Hide loading
+            if (loadingEl) loadingEl.style.display = 'none';
+            
+            if (!data.assignments || data.assignments.length === 0) {
+                if (emptyEl) emptyEl.style.display = 'block';
+                if (containerEl) containerEl.style.display = 'none';
+                return;
+            }
+            
+            // Show container
+            if (containerEl) containerEl.style.display = 'block';
+            if (emptyEl) emptyEl.style.display = 'none';
+            
+            // Update summary
+            document.getElementById('emp-total-projects').textContent = data.total || 0;
+            document.getElementById('emp-active-projects').textContent = data.active || 0;
+            document.getElementById('emp-completed-projects').textContent = data.completed || 0;
+            
+            // Render assignments as cards
+            if (listEl) {
+                listEl.innerHTML = data.assignments.map(assignment => {
+                    const isActive = assignment.status === 'Activo';
+                    const statusColor = isActive ? '#28a745' : '#6c757d';
+                    const statusIcon = isActive ? '✅' : '🏁';
+                    const startDate = assignment.start_date ? new Date(assignment.start_date).toLocaleDateString('es-MX') : 'N/A';
+                    const endDate = assignment.end_date ? new Date(assignment.end_date).toLocaleDateString('es-MX') : 'Sin definir';
+                    
+                    return `
+                        <div style="background:white;border:1px solid ${isActive ? '#28a745' : '#e5e7eb'};border-left:4px solid ${statusColor};border-radius:8px;padding:16px;transition:all 0.2s" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';this.style.transform='translateY(-2px)'" onmouseout="this.style.boxShadow='none';this.style.transform='translateY(0)'">
+                            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+                                <div style="flex:1">
+                                    <div style="font-size:16px;font-weight:600;color:#1f2937;margin-bottom:6px">
+                                        📊 ${assignment.project_name || 'Proyecto sin nombre'}
+                                    </div>
+                                    ${assignment.celula_name ? `<div style="display:inline-block;background:#3b82f6;color:white;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-bottom:4px">🔷 ${assignment.celula_name}</div>` : ''}
+                                    ${assignment.ot_code ? `<div style="font-size:13px;color:#6b7280;margin-top:4px">📦 OT: ${assignment.ot_code}</div>` : ''}
+                                </div>
+                                <div style="display:flex;align-items:center;gap:6px;background:${statusColor};color:white;padding:8px 14px;border-radius:6px;font-size:13px;font-weight:600;box-shadow:0 2px 4px rgba(0,0,0,0.1)">
+                                    ${statusIcon} ${assignment.status}
+                                </div>
+                            </div>
+                            
+                            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:14px;background:#f9fafb;border-radius:6px;margin-top:8px">
+                                ${assignment.role_in_project ? `
+                                <div>
+                                    <div style="font-size:11px;color:#6b7280;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">🎯 Rol</div>
+                                    <div style="font-size:14px;color:#374151;font-weight:600">${assignment.role_in_project}</div>
+                                </div>
+                                ` : ''}
+                                
+                                <div>
+                                    <div style="font-size:11px;color:#6b7280;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">📅 Inicio</div>
+                                    <div style="font-size:14px;color:#374151;font-weight:600">${startDate}</div>
+                                </div>
+                                
+                                <div>
+                                    <div style="font-size:11px;color:#6b7280;margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px">${isActive ? '⏳ Fin Proyectado' : '🏁 Fin'}</div>
+                                    <div style="font-size:14px;color:#374151;font-weight:600">${endDate}</div>
+                                </div>
+                                
+                                ${assignment.rate ? `
+                                <div>
+                                    <div style="font-size:11px;color:#6b7280;margin-bottom:2px">💵 Tarifa</div>
+                                    <div style="font-size:14px;color:#374151;font-weight:500">$${parseFloat(assignment.rate).toLocaleString()}</div>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            
+        } catch (error) {
+            console.error('Error loading assignments:', error);
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (emptyEl) {
+                emptyEl.style.display = 'block';
+                emptyEl.innerHTML = '<div style="font-size:32px;margin-bottom:10px;color:#ef4444">⚠️</div><div>Error al cargar el historial de asignaciones</div>';
+            }
+            if (containerEl) containerEl.style.display = 'none';
         }
     }
 
@@ -2910,6 +3270,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     await openModal(true, true); // Abre modal en modo solo lectura
                     setTimeout(() => {
                         window.populateForm(emp);
+                        // Aplicar modo solo lectura DESPUÉS de poblar el formulario
+                        setTimeout(() => {
+                            window.applyReadOnlyMode();
+                        }, 100);
                         // Cambiar a tab de asignaciones si existe historial
                         const assignmentsTab = document.querySelector('.tab-button[data-tab="asignaciones"]');
                         if (assignmentsTab) assignmentsTab.click();

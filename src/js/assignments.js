@@ -349,7 +349,61 @@ async function saveAssignment(event) {
         if (response.status === 409) {
             // Conflicto: empleado ya tiene asignación activa
             const error = await response.json();
-            showAssignmentConflict(error.details?.message || error.error);
+            const conflict = error.details?.conflicting_assignment;
+            
+            // Mostrar advertencia con SweetAlert2
+            const result = await Swal.fire({
+                title: '⚠️ Empleado ya asignado',
+                html: `
+                    <div style="text-align:left;margin:20px 0">
+                        <p style="margin-bottom:15px;font-size:15px">
+                            El empleado seleccionado ya tiene una asignación activa:
+                        </p>
+                        <div style="background:#f3f4f6;padding:15px;border-radius:8px;border-left:4px solid #3b82f6">
+                            <p style="margin:5px 0"><strong>📁 Proyecto:</strong> ${conflict?.project_name || 'N/A'}</p>
+                            ${conflict?.celula_name ? `<p style="margin:5px 0"><strong>🔷 Célula:</strong> ${conflict.celula_name}</p>` : ''}
+                            <p style="margin:5px 0"><strong>📅 Fecha inicio:</strong> ${conflict?.start_date ? new Date(conflict.start_date).toLocaleDateString('es-MX') : 'N/A'}</p>
+                            <p style="margin:5px 0"><strong>📅 Fecha fin:</strong> ${conflict?.end_date ? new Date(conflict.end_date).toLocaleDateString('es-MX') : 'Sin definir'}</p>
+                        </div>
+                        <p style="margin-top:15px;font-size:14px;color:#6b7280">
+                            ¿Desea finalizar la asignación actual (estableciendo fecha fin como hoy) 
+                            y crear la nueva asignación?
+                        </p>
+                    </div>
+                `,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: '✅ Sí, reasignar',
+                cancelButtonText: '❌ Cancelar',
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#6b7280',
+                width: '600px'
+            });
+            
+            if (!result.isConfirmed) return;
+            
+            // Reintentar con force_reassignment=true
+            assignmentData.force_reassignment = true;
+            const retryResponse = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(assignmentData)
+            });
+            
+            if (!retryResponse.ok) {
+                const retryError = await retryResponse.json();
+                throw new Error(retryError.error || 'Error al reasignar empleado');
+            }
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Empleado reasignado',
+                text: 'La asignación anterior fue finalizada y se creó la nueva asignación',
+                timer: 2500,
+                showConfirmButton: false
+            });
+            closeAssignmentModal(true);
+            loadAssignments();
             return;
         }
         
@@ -716,7 +770,7 @@ async function loadEmployeeAssignments(employeeId) {
     const loadingEl = document.getElementById('employee-assignments-loading');
     const emptyEl = document.getElementById('employee-assignments-empty');
     const containerEl = document.getElementById('employee-assignments-container');
-    const tbodyEl = document.getElementById('employee-assignments-tbody');
+    const listEl = document.getElementById('employee-assignments-list');
     
     if (!employeeId) {
         if (emptyEl) emptyEl.style.display = 'block';
@@ -735,38 +789,69 @@ async function loadEmployeeAssignments(employeeId) {
         
         const data = await response.json();
         const assignments = data.assignments || [];
-        const summary = data.summary || {};
         
         if (loadingEl) loadingEl.style.display = 'none';
         
         if (assignments.length === 0) {
             if (emptyEl) emptyEl.style.display = 'block';
         } else {
-            // Actualizar resumen
-            document.getElementById('emp-total-projects').textContent = summary.total_projects || 0;
-            document.getElementById('emp-active-projects').textContent = summary.active_projects || 0;
-            document.getElementById('emp-completed-projects').textContent = summary.completed_projects || 0;
-            document.getElementById('emp-total-hours').textContent = summary.total_hours_allocated || 0;
+            // Actualizar resumen (usar data.total, data.active, data.completed del endpoint)
+            const totalEl = document.getElementById('emp-total-projects');
+            const activeEl = document.getElementById('emp-active-projects');
+            const completedEl = document.getElementById('emp-completed-projects');
             
-            // Renderizar tabla
-            if (tbodyEl) {
-                tbodyEl.innerHTML = assignments.map(a => `
-                    <tr>
-                        <td>${a.ot_code ? `<strong>${a.ot_code}</strong><br><small style="color:#6b7280">${a.ot_description || ''}</small>` : '<span style="color:#999">Sin OT</span>'}</td>
-                        <td>${a.project_name || '-'}</td>
-                        <td>${a.celula_name || '-'}</td>
-                        <td>${a.role || '-'}</td>
-                        <td>${a.start_date ? new Date(a.start_date).toLocaleDateString('es-MX') : '-'}</td>
-                        <td>${a.end_date ? new Date(a.end_date).toLocaleDateString('es-MX') : 'Indefinida'}</td>
-                        <td>${a.hours_allocated || '-'} hrs/sem</td>
-                        <td>
-                            <span style="padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;
-                                ${a.is_active ? 'background:#d4edda;color:#155724' : 'background:#f8d7da;color:#721c24'}">
-                                ${a.is_active ? 'Activo' : 'Finalizado'}
-                            </span>
-                        </td>
-                    </tr>
-                `).join('');
+            if (totalEl) totalEl.textContent = data.total || 0;
+            if (activeEl) activeEl.textContent = data.active || 0;
+            if (completedEl) completedEl.textContent = data.completed || 0;
+            
+            // Renderizar tarjetas (no tabla)
+            if (listEl) {
+                listEl.innerHTML = assignments.map(assignment => {
+                    const isActive = assignment.status === 'Activo';
+                    const statusColor = isActive ? '#28a745' : '#6c757d';
+                    const startDate = assignment.start_date 
+                        ? new Date(assignment.start_date).toLocaleDateString('es-MX') 
+                        : 'Sin fecha';
+                    const endDate = assignment.end_date 
+                        ? new Date(assignment.end_date).toLocaleDateString('es-MX') 
+                        : 'Sin definir';
+                    
+                    return `
+                        <div style="background:white;border:1px solid #e5e7eb;border-left:4px solid ${statusColor};
+                                    border-radius:8px;padding:16px;transition:all 0.2s;cursor:pointer"
+                             onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)';this.style.transform='translateY(-2px)'"
+                             onmouseout="this.style.boxShadow='none';this.style.transform='translateY(0)'">
+                            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px">
+                                <div style="font-size:16px;font-weight:600;color:#1f2937">
+                                    📊 ${assignment.project_name || 'Sin proyecto'}
+                                </div>
+                                <div style="padding:4px 12px;border-radius:12px;font-size:11px;font-weight:600;
+                                            background:${statusColor};color:white">
+                                    ${isActive ? '✅' : '🏁'} ${assignment.status}
+                                </div>
+                            </div>
+                            ${assignment.celula_name ? `
+                                <div style="display:inline-block;background:#3b82f6;color:white;padding:4px 8px;
+                                            border-radius:4px;font-size:12px;font-weight:500;margin-bottom:8px">
+                                    🔷 ${assignment.celula_name}
+                                </div>
+                            ` : ''}
+                            ${assignment.ot_code ? `
+                                <div style="color:#6b7280;font-size:13px;margin-bottom:4px">
+                                    📋 OT: <strong>${assignment.ot_code}</strong>
+                                </div>
+                            ` : ''}
+                            ${assignment.role_in_project ? `
+                                <div style="color:#6b7280;font-size:13px;margin-bottom:4px">
+                                    👤 Rol: ${assignment.role_in_project}
+                                </div>
+                            ` : ''}
+                            <div style="color:#6b7280;font-size:13px;margin-bottom:4px">
+                                📅 ${startDate} → ${endDate}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
             }
             
             if (containerEl) containerEl.style.display = 'block';

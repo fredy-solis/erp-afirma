@@ -1472,7 +1472,7 @@
                             <input type="text" id="candidate-first" placeholder="Nombre (s)" pattern="[A-Za-zñÑáéíóúÁÉÍÓÚ\s]+" maxlength="50" title="Solo se permiten letras" required>
                             <input type="text" id="candidate-last" placeholder="Apellidos" pattern="[A-Za-zñÑáéíóúÁÉÍÓÚ\s]+" maxlength="50" title="Solo se permiten letras" required>
                         </div>
-                        <input type="text" id="candidate-email" placeholder="Email" required>
+                        <input type="email" id="candidate-email" placeholder="Email" required>
                         <input type="text" id="candidate-phone" placeholder="Teléfono (10 dígitos)" pattern="[0-9]{10}" maxlength="10" title="Ingresa exactamente 10 dígitos" required>
                         <input type="number" id="candidate-salary-expectation" placeholder="Expectativa de sueldo (opcional)" step="0.01" min="0" style="width:100%;padding:12px;margin-bottom:10px;border:1px solid #e6eef8;border-radius:8px;background:#fbfdff">
                         <select id="candidate-position" required style="width:100%;padding:12px;margin-bottom:10px;border:1px solid #e6eef8;border-radius:8px;background:#fbfdff" required>
@@ -1490,6 +1490,17 @@
                             <label style="display:block;margin-bottom:8px;font-weight:500;font-size:13px;">📄 CV del Candidato (PDF)</label>
                             <input type="file" id="candidate-cv" accept=".pdf" style="width:100%;padding:10px;border:2px dashed #e6eef8;border-radius:8px;background:#fbfdff;cursor:pointer;">
                             <small style="display:block;margin-top:4px;color:#9ca3af;">Formato soportado: PDF únicamente</small>
+                            
+                            <!-- Mostrar CV guardado si existe -->
+                            <div id="candidate-cv-saved" style="display:none;margin-top:12px;padding:12px;background:#f0f9ff;border:1px solid #bfdbfe;border-radius:8px;">
+                                <div style="display:flex;align-items:center;gap:8px;">
+                                    <span style="font-size:20px;">📎</span>
+                                    <div style="flex:1;">
+                                        <div style="font-weight:500;color:#1e40af;font-size:13px;margin-bottom:2px;">CV guardado</div>
+                                        <a id="candidate-cv-link" href="#" target="_blank" style="color:#3b82f6;text-decoration:underline;font-size:13px;word-break:break-all;">archivo_cv.pdf</a>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <!-- Campos ocultos para guardar automáticamente -->
                         <input type="hidden" id="candidate-recruited-by-value">
@@ -1654,30 +1665,33 @@
                             <!-- Pestaña 3: Contactos Comerciales -->
                             <div id="tab-job-opening-contactos" class="tab-content">
                                 <div style="padding:20px 0">
-                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px">
-                                        <h4 style="color:#374151;margin:0">📞 Contactos Comerciales</h4>
-                                        <button type="button" id="add-commercial-contact" style="background:#10b981;color:white;border:none;padding:8px 16px;border-radius:6px;cursor:pointer;display:flex;align-items:center;gap:5px">
-                                            <span style="font-size:18px">+</span> Agregar Contacto
-                                        </button>
-                                    </div>
+                                    <h4 style="color:#374151;margin:0 0 15px 0">📞 Contactos Comerciales</h4>
                                     
-                                    <div id="commercial-contacts-container" style="display:flex;flex-direction:column;gap:10px">
-                                        <!-- Los contactos se agregarán dinámicamente aquí -->
-                                        <p id="no-contacts-message" style="color:#6b7280;text-align:center;padding:20px;margin:0;font-style:italic">
-                                            No hay contactos agregados. Haz clic en "Agregar Contacto" para comenzar.
-                                        </p>
+                                    <!-- Formulario fijo para agregar contactos -->
+                                    <div style="background:#f9fafb;padding:15px;border-radius:8px;margin-bottom:20px;border:1px solid #e5e7eb">
+                                        <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
+                                            <input type="text" id="new-contact-name" placeholder="Nombre Completo *" style="flex:1;min-width:200px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
+                                            <input type="email" id="new-contact-email" placeholder="correo@ejemplo.com *" style="flex:1;min-width:200px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
+                                            <input type="tel" id="new-contact-phone" placeholder="Teléfono" style="flex:0.8;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
+                                            <input type="text" id="new-contact-location" placeholder="Ubicación" style="flex:0.8;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
+                                            <button type="button" id="add-commercial-contact" style="background:#10b981;color:white;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:500;white-space:nowrap">
+                                                <span style="font-size:18px;margin-right:5px">+</span> Agregar
+                                            </button>
+                                        </div>
+                                        <small style="color:#6b7280;display:block;margin-top:8px">* Nombre y email son obligatorios</small>
                                     </div>
 
-                                    <!-- Template oculto para contactos (no se muestra, se clona con JS) -->
-                                    <template id="commercial-contact-template">
-                                        <div class="commercial-contact-row" style="display:flex;gap:8px;padding:12px;background:white;border:1px solid #e6eef8;border-radius:6px;align-items:center">
-                                            <input type="text" class="contact-full-name" placeholder="Nombre Completo *" style="flex:1;padding:10px;border:1px solid #e6eef8;border-radius:6px">
-                                            <input type="email" class="contact-email" placeholder="correo@ejemplo.com *" style="flex:1;padding:10px;border:1px solid #e6eef8;border-radius:6px">
-                                            <input type="tel" class="contact-phone" placeholder="Teléfono" style="flex:0.8;padding:10px;border:1px solid #e6eef8;border-radius:6px">
-                                            <input type="text" class="contact-location" placeholder="Ubicación" style="flex:0.8;padding:10px;border:1px solid #e6eef8;border-radius:6px">
-                                            <button type="button" class="remove-commercial-contact" style="background:#ef4444;color:white;border:none;padding:10px 12px;border-radius:6px;cursor:pointer;font-size:16px" title="Eliminar contacto">🗑️</button>
+                                    <!-- Lista de contactos agregados -->
+                                    <div style="background:white;border-radius:8px;border:1px solid #e5e7eb">
+                                        <div style="padding:12px 15px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-weight:600;color:#374151">
+                                            Contactos Agregados (<span id="contacts-count">0</span>)
                                         </div>
-                                    </template>
+                                        <div id="commercial-contacts-list" style="max-height:400px;overflow-y:auto">
+                                            <div id="no-contacts-message" style="color:#6b7280;text-align:center;padding:40px 20px;font-style:italic">
+                                                No hay contactos agregados. Complete el formulario arriba y haga clic en "Agregar".
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1758,16 +1772,18 @@
                                             </select>
                                         </div>
                                         <div style="flex:1">
-                                            <label for="employee-project" class="field-label">Proyecto</label>
+                                            <label for="employee-project" class="field-label">Proyecto <span style="color:#6b7280;font-size:12px;font-weight:normal">(Opcional)</span></label>
                                             <select id="employee-project">
                                                 <option value="">Seleccionar proyecto...</option>
                                             </select>
+                                            <small style="color:#6b7280;font-size:11px;display:block;margin-top:4px">Al seleccionar un proyecto, se auto-seleccionará su célula y se creará una asignación automática</small>
                                         </div>
                                         <div style="flex:1">
-                                            <label for="employee-cell" class="field-label">Célula</label>
+                                            <label for="employee-cell" class="field-label">Célula <span style="color:#6b7280;font-size:12px;font-weight:normal">(Opcional)</span></label>
                                             <select id="employee-cell">
                                                 <option value="">Seleccionar célula...</option>
                                             </select>
+                                            <small style="color:#6b7280;font-size:11px;display:block;margin-top:4px">Se auto-completa al seleccionar un proyecto</small>
                                         </div>
                                     </div>
                                     <div style="margin-top:6px">
@@ -1808,7 +1824,7 @@
                                     <div style="display:flex;gap:10px">
                                         <div style="flex:1">
                                             <label for="employee-birth" class="field-label">Fecha de nacimiento</label>
-                                            <input type="date" id="employee-birth" placeholder="Fecha de nacimiento">
+                                            <input type="date" id="employee-birth" placeholder="DD/MM/AAAA" style="width:100%;padding:12px;font-size:14px;border:1px solid #ddd;border-radius:6px;box-sizing:border-box">
                                         </div>
                                         <div style="flex:1">
                                             <!-- Espacio para futuros campos -->
@@ -2041,7 +2057,7 @@
                                 <div class="form-section">
                                     <h4>Historial de Contratos</h4>
                                     <div id="contracts-list" class="contracts-list">
-                                        <p><em>Selecciona un empleado para ver su historial de contratos</em></p>
+                                        <p><em>No hay contratos aún</em></p>
                                     </div>
                                 </div>
                             </div>
@@ -2049,7 +2065,8 @@
                             <!-- Pestaña: Asignaciones -->
                             <div class="tab-content" id="tab-asignaciones">
                                 <div class="form-section">
-                                    <h4>Historial de Proyectos</h4>
+                                    <h4>📋 Historial de Asignaciones</h4>
+                                    <p style="color:#6b7280;font-size:14px;margin-bottom:20px">Proyectos y células a los que ha pertenecido el empleado, ordenados del más reciente al más antiguo.</p>
                                     <div id="employee-assignments-loading" style="text-align:center;padding:20px;color:#666;display:none">
                                         Cargando historial de proyectos...
                                     </div>
@@ -2071,27 +2088,12 @@
                                                 <div style="font-size:24px;font-weight:bold;color:#6c757d" id="emp-completed-projects">0</div>
                                                 <div style="font-size:12px;color:#6b7280">Completados</div>
                                             </div>
-                                            <div>
-                                                <div style="font-size:24px;font-weight:bold;color:#17a2b8" id="emp-total-hours">0</div>
-                                                <div style="font-size:12px;color:#6b7280">Horas Totales</div>
-                                            </div>
                                         </div>
-                                        <table class="employee-table" id="employee-assignments-table" style="width:100%">
-                                            <thead>
-                                                <tr>
-                                                    <th>� OT</th>
-                                                    <th>📋 Proyecto</th>
-                                                    <th>🔷 Célula</th>
-                                                    <th>🎯 Rol</th>
-                                                    <th>📅 Inicio</th>
-                                                    <th>📅 Fin</th>
-                                                    <th>⏰ Horas</th>
-                                                    <th>📊 Estado</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="employee-assignments-tbody">
-                                            </tbody>
-                                        </table>
+                                        
+                                        <!-- Historial de Asignaciones (Tarjetas) -->
+                                        <div id="employee-assignments-list" style="display:flex;flex-direction:column;gap:12px;max-height:500px;overflow-y:auto">
+                                            <!-- Las asignaciones se renderizarán aquí como tarjetas -->
+                                        </div>
                                     </div>
                                 </div>
                             </div>

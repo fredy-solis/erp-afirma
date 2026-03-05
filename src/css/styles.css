@@ -52,8 +52,8 @@ html,body{height:100%;margin:0;font-family:'Segoe UI', Tahoma, Geneva, Verdana, 
 .field-label{display:block;font-weight:600;margin-bottom:6px;color:var(--brand-primary);font-size:13px}
 
 /* Forms */
-form input[type=text],form input[type=email],form select,form textarea{width:100%;padding:10px 12px;margin-bottom:12px;border:1px solid var(--border);border-radius:8px;background:#fff;font-family:inherit;font-size:14px;transition:border 0.2s}
-form input[type=text]:focus,form input[type=email]:focus,form select:focus,form textarea:focus{outline:none;border-color:var(--brand-accent);box-shadow:0 0 0 3px rgba(0,102,255,0.1)}
+form input[type=text],form input[type=email],form input[type=number],form input[type=date],form input[type=file],form select,form textarea{width:100%;padding:10px 12px;margin-bottom:12px;border:1px solid var(--border);border-radius:8px;background:#fff;font-family:inherit;font-size:14px;transition:border 0.2s}
+form input[type=text]:focus,form input[type=email]:focus,form input[type=number]:focus,form input[type=date]:focus,form input[type=file]:focus,form select:focus,form textarea:focus{outline:none;border-color:var(--brand-accent);box-shadow:0 0 0 3px rgba(0,102,255,0.1)}
 
 button{background:var(--brand-accent);color:#fff;border:none;padding:10px 14px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;transition:all 0.2s;letter-spacing:-0.3px}
 button:hover{opacity:0.9;transform:translateY(-1px)}
@@ -1028,7 +1028,7 @@ table td {
    - Campos normales: MAYÚSCULAS (JavaScript)
    - Emails: minúsculas (JavaScript) */
 /* ============================================
-   ESTILOS HOMOLOGADOS PARA MODAL DE EDICI�N DE OT
+   ESTILOS HOMOLOGADOS PARA MODAL DE EDICI�N DE OT
    ============================================ */
 #ot-edit-form input[type="text"],
 #ot-edit-form input[type="email"],

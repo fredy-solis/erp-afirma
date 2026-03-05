@@ -79,6 +79,10 @@ function clearCandidateForm() {
     document.getElementById('candidate-cv-url').value = '';
     document.getElementById('candidate-submit').textContent = 'Guardar';
     
+    // Ocultar el div del CV guardado
+    const cvSavedDiv = document.getElementById('candidate-cv-saved');
+    if (cvSavedDiv) cvSavedDiv.style.display = 'none';
+    
     // Habilitar todos los campos
     enableCandidateForm();
 }
@@ -97,6 +101,27 @@ function populateCandidateForm(candidate){
     document.getElementById('candidate-recruited-by-value').value = candidate.recruited_by || '';
     document.getElementById('candidate-hired-date-value').value = candidate.hired_date || '';
     document.getElementById('candidate-submit').textContent = 'Guardar cambios';
+    
+    // Mostrar CV guardado si existe
+    const cvSavedDiv = document.getElementById('candidate-cv-saved');
+    const cvLink = document.getElementById('candidate-cv-link');
+    if (candidate.cv_url) {
+        if (cvSavedDiv) cvSavedDiv.style.display = 'block';
+        if (cvLink) {
+            // Construir URL completa
+            let cvUrl = candidate.cv_url;
+            if (cvUrl.startsWith('/')) {
+                const apiBase = window.getApiUrl ? window.getApiUrl('') : 'http://localhost:3000';
+                cvUrl = apiBase + cvUrl;
+            }
+            cvLink.href = cvUrl;
+            // Mostrar solo el nombre del archivo
+            const fileName = candidate.cv_url.split('/').pop() || 'CV.pdf';
+            cvLink.textContent = fileName;
+        }
+    } else {
+        if (cvSavedDiv) cvSavedDiv.style.display = 'none';
+    }
     
     // Si el candidato ya está contratado, congelar el formulario
     if (candidate.status === 'Contratado') {

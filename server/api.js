@@ -1501,7 +1501,49 @@ app.post('/api/employees-v2', async (req, res) => {
         gender || null, marital_status || null, nationality || null, blood_type || null
       ]
     );
-    res.status(201).json(result.rows[0]);
+    
+    const newEmployee = result.rows[0];
+    
+    // Solo crear asignación si hay un proyecto (project_id es requerido en project_assignments)
+    if (resolvedProjectId) {
+      try {
+        // Buscar si el proyecto tiene una OT asociada (tomamos la primera)
+        let otId = null;
+        const otResult = await db.query(
+          `SELECT ow.id 
+           FROM orders_of_work ow
+           INNER JOIN project_ot_relations por ON ow.id = por.ot_id
+           WHERE por.project_id = $1
+           LIMIT 1`,
+          [resolvedProjectId]
+        );
+        if (otResult.rowCount > 0) {
+          otId = otResult.rows[0].id;
+        }
+        
+        // Crear la asignación
+        await db.query(
+          `INSERT INTO project_assignments (
+            employee_id, project_id, ot_id, start_date, allocation_percentage, rate
+          ) VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            newEmployee.id,
+            resolvedProjectId,
+            otId || null,
+            hireDateNormalized, // Usar la fecha de contratación como inicio de asignación
+            100, // 100% por defecto
+            0 // Rate 0 por defecto
+          ]
+        );
+        
+        console.log(`✅ Asignación automática creada para empleado ${newEmployee.id} - Proyecto: ${resolvedProjectId}, Célula: ${resolvedCellId || 'N/A'}`);
+      } catch (assignmentErr) {
+        console.error('⚠️ Error creando asignación automática (no crítico):', assignmentErr);
+        // No fallar la creación del empleado si falla la asignación
+      }
+    }
+    
+    res.status(201).json(newEmployee);
   } catch (err) {
     console.error('Error creating employee', err);
     res.status(500).json({ error: 'Error creating employee: ' + err.message });
@@ -3163,9 +3205,9 @@ app.delete('/api/projects/:id', async (req, res) => {
 // Add employee to project
 app.post('/api/projects/:id/assignments', async (req, res) => {
   const { id } = req.params;
-  const { employee_id, ot_id, role, start_date, end_date, allocation_percentage, rate } = req.body;
+  const { employee_id, ot_id, role, start_date, end_date, allocation_percentage, rate, force_reassignment } = req.body;
   
-  console.log('🔍 Creating assignment:', { employee_id, project_id: id, ot_id, role });
+  console.log('🔍 Creating assignment:', { employee_id, project_id: id, ot_id, role, force_reassignment });
   
   if (!employee_id) {
     return res.status(400).json({ error: 'Required field: employee_id' });
@@ -3174,9 +3216,11 @@ app.post('/api/projects/:id/assignments', async (req, res) => {
   try {
     // VALIDACIÓN: Verificar que el empleado no tenga asignaciones activas
     const activeAssignments = await db.query(
-      `SELECT pa.id, p.name as project_name, pa.start_date, pa.end_date
+      `SELECT pa.id, p.name as project_name, p.id as project_id, pa.start_date, pa.end_date,
+              mc_celula.item as celula_name
        FROM project_assignments pa
        INNER JOIN projects p ON pa.project_id = p.id
+       LEFT JOIN mastercode mc_celula ON p.celula_id = mc_celula.id
        WHERE pa.employee_id = $1 
        AND (pa.end_date IS NULL OR pa.end_date >= CURRENT_DATE)`,
       [employee_id]
@@ -3184,17 +3228,35 @@ app.post('/api/projects/:id/assignments', async (req, res) => {
     
     if (activeAssignments.rowCount > 0) {
       const activeProject = activeAssignments.rows[0];
-      return res.status(409).json({ 
-        error: 'El empleado ya tiene una asignación activa',
-        details: {
-          message: `El empleado ya está asignado al proyecto "${activeProject.project_name}"`,
-          conflicting_assignment: {
-            project_name: activeProject.project_name,
-            start_date: activeProject.start_date,
-            end_date: activeProject.end_date
+      
+      // Si NO es reasignación forzada, devolver conflicto para que el frontend pregunte
+      if (!force_reassignment) {
+        return res.status(409).json({ 
+          error: 'El empleado ya tiene una asignación activa',
+          details: {
+            message: `El empleado ya está asignado al proyecto "${activeProject.project_name}"`,
+            conflicting_assignment: {
+              id: activeProject.id,
+              project_id: activeProject.project_id,
+              project_name: activeProject.project_name,
+              celula_name: activeProject.celula_name,
+              start_date: activeProject.start_date,
+              end_date: activeProject.end_date
+            }
           }
-        }
-      });
+        });
+      }
+      
+      // Si es force_reassignment=true, finalizar la asignación anterior
+      console.log('🔄 Finalizando asignación anterior:', activeProject.id);
+      const today = new Date().toISOString().split('T')[0];
+      await db.query(
+        `UPDATE project_assignments 
+         SET end_date = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2`,
+        [today, activeProject.id]
+      );
+      console.log('✅ Asignación anterior finalizada');
     }
     
     // Si no hay conflictos, proceder con la asignación
@@ -3272,22 +3334,30 @@ app.get('/api/employees/:id/assignments', async (req, res) => {
         ow.ot_code,
         ow.description as ot_description,
         mc_celula.item as celula_name,
-        pa.role as role_in_project,
+        pa.role_name as role_in_project,
         pa.start_date,
         pa.end_date,
         pa.allocation_percentage,
         pa.rate,
         CASE 
+          WHEN pa.end_date IS NULL THEN 'Activo'
+          WHEN pa.end_date >= CURRENT_DATE THEN 'Activo'
+          ELSE 'Finalizado'
+        END as status,
+        CASE 
           WHEN pa.end_date IS NULL OR pa.end_date >= CURRENT_DATE THEN true 
           ELSE false 
         END as is_active,
-        pa.created_at
+        pa.created_at,
+        pa.updated_at
       FROM project_assignments pa
       INNER JOIN projects p ON pa.project_id = p.id
       LEFT JOIN orders_of_work ow ON pa.ot_id = ow.id
       LEFT JOIN mastercode mc_celula ON p.celula_id = mc_celula.id AND mc_celula.lista = 'Celulas'
       WHERE pa.employee_id = $1
-      ORDER BY pa.start_date DESC`,
+      ORDER BY 
+        CASE WHEN pa.end_date IS NULL THEN 0 ELSE 1 END,
+        COALESCE(pa.start_date, pa.created_at) DESC`,
       [id]
     );
     
@@ -3299,6 +3369,9 @@ app.get('/api/employees/:id/assignments', async (req, res) => {
     
     res.json({
       assignments: result.rows,
+      total: result.rows.length,
+      active: activeAssignments.length,
+      completed: completedAssignments.length,
       summary: {
         total_projects: result.rows.length,
         active_projects: activeAssignments.length,
