@@ -86,7 +86,10 @@ const migrations = [
   
   // Licitaciones y contactos comerciales
   '035_create_licitaciones.sql',
-  '036_create_commercial_contacts.sql'
+  '036_create_commercial_contacts.sql',
+  
+  // Correcciones de usuarios
+  '039_rename_role_to_role_name.sql'
 ];
 
 async function runMigrations() {
