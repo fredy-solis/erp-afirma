@@ -362,6 +362,8 @@ function renderTopResources() {
 
 // Cambiar tab de reporte
 function switchReportTab(tabName, event) {
+    console.log('Switching to tab:', tabName);
+    
     // Ocultar todos los tabs
     document.querySelectorAll('#reportes .tab-content').forEach(content => {
         content.classList.remove('active');
@@ -378,6 +380,9 @@ function switchReportTab(tabName, event) {
     if (activeTab) {
         activeTab.classList.add('active');
         activeTab.style.display = 'block';
+        console.log('Tab activated:', activeTab.id);
+    } else {
+        console.error('Tab not found:', `report-tab-${tabName}`);
     }
     
     // Activar botón
@@ -385,18 +390,24 @@ function switchReportTab(tabName, event) {
         event.target.classList.add('active');
     } else {
         // Fallback: encontrar el botón por el nombre del tab
-        document.querySelectorAll('#reportes .tab-button').forEach(button => {
-            if (button.getAttribute('onclick') && button.getAttribute('onclick').includes(tabName)) {
+        const buttons = document.querySelectorAll('#reportes .tab-button');
+        buttons.forEach(button => {
+            const onclick = button.getAttribute('onclick');
+            if (onclick && onclick.includes(`'${tabName}'`)) {
                 button.classList.add('active');
             }
         });
     }
     
-    // Cargar datos según el tab
+    // Cargar datos cada vez que se hace clic en la pestaña
     if (tabName === 'resources-by-project') {
         loadResourcesByProject();
     } else if (tabName === 'projects-by-resource') {
         loadProjectsByResource();
+    } else if (tabName === 'top-projects') {
+        renderTopProjects();
+    } else if (tabName === 'top-resources') {
+        renderTopResources();
     }
 }
 

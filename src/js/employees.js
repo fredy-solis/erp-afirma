@@ -22,19 +22,41 @@ async function createEmployee(payload) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        
         if (!res.ok) {
-            const errorText = await res.text();
-            throw new Error(errorText || 'Error al crear empleado');
+            let errorMessage = 'Error al crear empleado';
+            try {
+                const errorData = await res.json();
+                errorMessage = errorData.error || errorMessage;
+            } catch (parseErr) {
+                // Si no se puede parsear como JSON, usar texto plano
+                errorMessage = await res.text() || errorMessage;
+            }
+            
+            // Mostrar error al usuario
+            Swal.fire({
+                icon: 'error',
+                title: 'No se pudo crear el empleado',
+                html: errorMessage,
+                confirmButtonColor: '#3b82f6'
+            });
+            
+            throw new Error(errorMessage);
         }
+        
         const result = await res.json();
         return result;
     } catch (err) {
         console.error('Error creating employee', err);
-        Swal.fire({
-            icon: 'error',
-            title: 'Error al crear empleado',
-            text: err.message || err
-        });
+        
+        // Si el error ya se mostró, no mostrar otro mensaje
+        if (!err.message || !err.message.includes('código')) {
+            Swal.fire({
+                icon: 'error',
+                title: 'Error al crear empleado',
+                text: err.message || err
+            });
+        }
         throw err;
     }
 }

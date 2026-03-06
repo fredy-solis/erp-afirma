@@ -120,32 +120,86 @@ async function loadBenchIndicator() {
 }
 
 // Abrir modal de nueva asignación
-function openAssignmentModal() {
-    console.log('📂 Abriendo modal de asignación');
+function openAssignmentModal(options = {}) {
+    console.log('📂 Abriendo modal de asignación', options);
     const modal = document.getElementById('assignment-modal');
     const title = document.getElementById('assignment-modal-title');
     const form = document.getElementById('assignment-form');
+    const projectSelect = document.getElementById('assignment-project');
+    const projectHint = document.getElementById('assignment-project-hint');
+    const otSelect = document.getElementById('assignment-ot');
     
     if (!modal || !title || !form) {
         console.error('❌ No se encontraron elementos del modal:', { modal: !!modal, title: !!title, form: !!form });
         return;
     }
     
-    title.textContent = 'Nueva Asignación';
+    title.textContent = options.lockedProjectId ? '➕ Asignar Recurso al Proyecto' : 'Nueva Asignación';
     form.reset();
     document.getElementById('assignment-id').value = '';
+    
+    // Guardar el proyecto bloqueado en el modal
+    if (options.lockedProjectId) {
+        modal.dataset.lockedProjectId = options.lockedProjectId;
+        modal.dataset.lockedProjectName = options.lockedProjectName || '';
+    } else {
+        delete modal.dataset.lockedProjectId;
+        delete modal.dataset.lockedProjectName;
+    }
     
     // Ocultar alerta de conflicto
     const alert = document.getElementById('assignment-conflict-alert');
     if (alert) alert.style.display = 'none';
     
-    // Cargar OTs y proyectos
-    loadAvailableOTs();
+    // Cargar dropdowns básicos
     loadProjectsDropdown();
     loadAvailableEmployees();
     
-    // Configurar auto-selección de OT → Proyecto
-    setupOTProjectAutoSelection();
+    // Si hay proyecto bloqueado, configurar el modal
+    if (options.lockedProjectId) {
+        // Cargar OTs del proyecto específico
+        loadProjectOTsForAssignment(options.lockedProjectId, projectHint, otSelect);
+        
+        setTimeout(() => {
+            // Pre-seleccionar y bloquear el proyecto
+            if (projectSelect) {
+                projectSelect.value = options.lockedProjectId;
+                projectSelect.disabled = true;
+                projectSelect.style.backgroundColor = '#f3f4f6';
+                projectSelect.style.cursor = 'not-allowed';
+            }
+            
+            // Mostrar mensaje de proyecto predeterminado
+            if (projectHint) {
+                projectHint.textContent = `✓ Asignando al proyecto: ${options.lockedProjectName || 'Seleccionado'}`;
+                projectHint.style.display = 'block';
+                projectHint.style.color = '#2563eb';
+            }
+        }, 150);
+    } else {
+        // Modo normal: cargar todas las OTs disponibles
+        loadAvailableOTs();
+        
+        // Asegurar que los campos estén habilitados en modo normal
+        setTimeout(() => {
+            if (projectSelect) {
+                projectSelect.disabled = false;
+                projectSelect.style.backgroundColor = '';
+                projectSelect.style.cursor = '';
+            }
+            if (otSelect) {
+                otSelect.disabled = false;
+                otSelect.style.backgroundColor = '';
+                otSelect.style.cursor = '';
+            }
+            if (projectHint) {
+                projectHint.style.display = 'none';
+            }
+        }, 150);
+        
+        // Configurar auto-selección de OT → Proyecto solo en modo normal
+        setupOTProjectAutoSelection();
+    }
     
     modal.style.display = 'flex';
     console.log('✅ Modal abierto');
@@ -239,6 +293,56 @@ async function loadAvailableOTs() {
         }
     } catch (err) {
         console.error('Error loading OTs:', err);
+    }
+}
+
+// Cargar OTs de un proyecto específico para el modal de asignación
+async function loadProjectOTsForAssignment(projectId, projectHint, otSelect) {
+    if (!projectId || !otSelect) return;
+    
+    try {
+        const response = await fetch(window.getApiUrl(`/api/projects/${projectId}/orders-of-work`));
+        if (!response.ok) throw new Error('Error al cargar OTs del proyecto');
+        
+        const ots = await response.json();
+        
+        setTimeout(() => {
+            if (ots && ots.length > 0) {
+                // El proyecto tiene OTs → habilitar selector
+                otSelect.innerHTML = '<option value="">Asignación directa al proyecto</option>' +
+                    ots.map(ot => `<option value="${ot.id}">${ot.ot_code} - ${ot.description || 'Sin descripción'}</option>`).join('');
+                
+                otSelect.disabled = false;
+                otSelect.style.backgroundColor = '';
+                otSelect.style.cursor = '';
+                
+                // Agregar hint adicional
+                if (projectHint) {
+                    const currentText = projectHint.textContent;
+                    projectHint.innerHTML = `${currentText}<br><small style="font-size:12px;color:#059669">💡 Puedes seleccionar una OT específica o asignar directamente al proyecto</small>`;
+                }
+            } else {
+                // El proyecto NO tiene OTs → deshabilitar y mostrar mensaje
+                otSelect.innerHTML = '<option value="">Sin OTs disponibles (asignación directa)</option>';
+                otSelect.disabled = true;
+                otSelect.style.backgroundColor = '#f3f4f6';
+                otSelect.style.cursor = 'not-allowed';
+                
+                if (projectHint) {
+                    const currentText = projectHint.textContent;
+                    projectHint.innerHTML = `${currentText}<br><small style="font-size:12px;color:#6b7280">ℹ️ Este proyecto no tiene OTs. La asignación será directa al proyecto</small>`;
+                }
+            }
+        }, 200);
+        
+    } catch (err) {
+        console.error('Error loading project OTs:', err);
+        // En caso de error, deshabilitar selector
+        if (otSelect) {
+            otSelect.innerHTML = '<option value="">Error al cargar OTs</option>';
+            otSelect.disabled = true;
+            otSelect.style.backgroundColor = '#f3f4f6';
+        }
     }
 }
 
@@ -402,8 +506,39 @@ async function saveAssignment(event) {
                 timer: 2500,
                 showConfirmButton: false
             });
+            
+            // Verificar si venimos desde el modal de proyecto
+            const modal = document.getElementById('assignment-modal');
+            const lockedProjectId = modal?.dataset?.lockedProjectId;
+            
             closeAssignmentModal(true);
-            loadAssignments();
+            
+            // Si venimos desde un proyecto, reabrir el modal de proyecto
+            if (lockedProjectId && window.openProjectModal) {
+                console.log('🔄 Reabriendo modal de proyecto después de reasignación...');
+                
+                // Obtener los datos completos del proyecto
+                try {
+                    const projectResponse = await fetch(window.getApiUrl(`/api/projects/${lockedProjectId}`));
+                    if (projectResponse.ok) {
+                        const projectData = await projectResponse.json();
+                        // Reabrir en modo edición
+                        setTimeout(() => {
+                            window.openProjectModal(true, projectData, false);
+                            // Cambiar a la pestaña de asignaciones después de un momento
+                            setTimeout(() => {
+                                const assignmentsTab = document.querySelector('[data-tab="assignments"]');
+                                if (assignmentsTab) assignmentsTab.click();
+                            }, 300);
+                        }, 500);
+                    }
+                } catch (err) {
+                    console.error('Error reabriendo modal de proyecto:', err);
+                }
+            } else {
+                // Flujo normal: recargar tabla de asignaciones global
+                loadAssignments();
+            }
             return;
         }
         
@@ -419,8 +554,40 @@ async function saveAssignment(event) {
             timer: 2000,
             showConfirmButton: false
         });
+        
+        // Verificar si venimos desde el modal de proyecto
+        const modal = document.getElementById('assignment-modal');
+        const lockedProjectId = modal?.dataset?.lockedProjectId;
+        const lockedProjectName = modal?.dataset?.lockedProjectName;
+        
         closeAssignmentModal(true); // true = skip confirmation
-        loadAssignments();
+        
+        // Si venimos desde un proyecto, reabrir el modal de proyecto
+        if (lockedProjectId && window.openProjectModal) {
+            console.log('🔄 Reabriendo modal de proyecto después de asignación...');
+            
+            // Obtener los datos completos del proyecto
+            try {
+                const projectResponse = await fetch(window.getApiUrl(`/api/projects/${lockedProjectId}`));
+                if (projectResponse.ok) {
+                    const projectData = await projectResponse.json();
+                    // Reabrir en modo edición
+                    setTimeout(() => {
+                        window.openProjectModal(true, projectData, false);
+                        // Cambiar a la pestaña de asignaciones después de un momento
+                        setTimeout(() => {
+                            const assignmentsTab = document.querySelector('[data-tab="assignments"]');
+                            if (assignmentsTab) assignmentsTab.click();
+                        }, 300);
+                    }, 500);
+                }
+            } catch (err) {
+                console.error('Error reabriendo modal de proyecto:', err);
+            }
+        } else {
+            // Flujo normal: recargar tabla de asignaciones global
+            loadAssignments();
+        }
         
     } catch (err) {
         console.error('Error saving assignment:', err);
@@ -523,6 +690,10 @@ async function closeAssignmentModal(skipConfirmation = false) {
     console.log('🚪 Cerrando modal...');
     modal.style.display = 'none';
     
+    // Limpiar estado de proyecto bloqueado
+    delete modal.dataset.lockedProjectId;
+    delete modal.dataset.lockedProjectName;
+    
     const form = document.getElementById('assignment-form');
     if (form) {
         form.reset();
@@ -586,10 +757,10 @@ function renderBenchTable(resources) {
     
     tbody.innerHTML = resources.map(resource => `
         <tr>
-            <td>${resource.first_name || ''} ${resource.last_name || ''}</td>
-            <td>${resource.position || '-'}</td>
-            <td>${resource.area || '-'}</td>
-            <td>${resource.entity || '-'}</td>
+            <td>${resource.nombre_completo || '-'}</td>
+            <td>${resource.position_name || '-'}</td>
+            <td>${resource.area_name || '-'}</td>
+            <td>${resource.entity_name || '-'}</td>
             <td>${resource.last_assignment_end ? new Date(resource.last_assignment_end).toLocaleDateString('es-MX') : 'Nunca asignado'}</td>
             <td>
                 <span style="padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;background:#fff3cd;color:#856404">
@@ -744,11 +915,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Botón asignar recurso desde modal de proyecto
-    const projectAddAssignmentBtn = document.getElementById('project-add-assignment');
-    if (projectAddAssignmentBtn) {
-        projectAddAssignmentBtn.addEventListener('click', openAssignmentModalFromProject);
-    }
+    // Botón asignar recurso desde modal de proyecto - REMOVIDO (usar event delegation global abajo)
 });
 
 // Exponer funciones globalmente
@@ -902,21 +1069,20 @@ async function loadProjectAssignments(projectId) {
             if (tbodyEl) {
                 tbodyEl.innerHTML = assignments.map(a => `
                     <tr>
-                        <td>${a.first_name || ''} ${a.last_name || ''}</td>
-                        <td>${a.position || '-'}</td>
-                        <td>${a.role || '-'}</td>
-                        <td>${a.start_date ? new Date(a.start_date).toLocaleDateString('es-MX') : '-'}</td>
-                        <td>${a.end_date ? new Date(a.end_date).toLocaleDateString('es-MX') : 'Indefinida'}</td>
-                        <td>${a.hours_allocated || '-'} hrs/sem</td>
-                        <td>
+                        <td style="min-width:150px">${a.first_name || ''} ${a.last_name || ''}</td>
+                        <td style="min-width:120px">${a.position || 'Sin asignar'}</td>
+                        <td style="min-width:120px">${a.role_name || 'Sin rol'}</td>
+                        <td style="min-width:100px">${a.start_date ? new Date(a.start_date).toLocaleDateString('es-MX') : '-'}</td>
+                        <td style="min-width:100px">${a.end_date ? new Date(a.end_date).toLocaleDateString('es-MX') : 'Indefinida'}</td>
+                        <td style="min-width:100px">
                             <span style="padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;
                                 ${a.is_active ? 'background:#d4edda;color:#155724' : 'background:#f8d7da;color:#721c24'}">
                                 ${a.status || (a.is_active ? 'Activo' : 'Finalizado')}
                             </span>
                         </td>
-                        <td>
+                        <td style="min-width:100px;text-align:center">
                             ${a.is_active ? `
-                                <button onclick="finishAssignmentFromProject(${a.id})" class="btn-secondary" style="padding:4px 8px;font-size:12px;background:#dc3545;color:white">
+                                <button onclick="finishAssignmentFromProject(${a.id})" class="btn-secondary" style="padding:4px 8px;font-size:12px;background:#dc3545;color:white;white-space:nowrap">
                                     🏁 Finalizar
                                 </button>
                             ` : `<span style="color:#999">Finalizada</span>`}
@@ -988,9 +1154,15 @@ async function finishAssignmentFromProject(assignmentId) {
 // Manejar botón "Asignar Recurso" desde modal de proyecto
 function openAssignmentModalFromProject() {
     const projectId = document.getElementById('project-id').value;
+    const projectName = document.getElementById('project-name').value;
     
     if (!projectId) {
-        alert('Primero guarda el proyecto antes de asignar recursos');
+        Swal.fire({
+            icon: 'warning',
+            title: 'Proyecto no guardado',
+            text: 'Primero debes guardar el proyecto antes de asignar recursos',
+            confirmButtonText: 'Entendido'
+        });
         return;
     }
     
@@ -998,18 +1170,35 @@ function openAssignmentModalFromProject() {
     const projectModal = document.getElementById('project-modal');
     if (projectModal) projectModal.style.display = 'none';
     
-    // Abrir modal de asignación
-    openAssignmentModal();
-    
-    // Pre-seleccionar el proyecto
-    setTimeout(() => {
-        const projectSelect = document.getElementById('assignment-project');
-        if (projectSelect) {
-            projectSelect.value = projectId;
-        }
-    }, 100);
+    // Abrir modal de asignación con proyecto bloqueado
+    openAssignmentModal({
+        lockedProjectId: projectId,
+        lockedProjectName: projectName
+    });
 }
 
 // Exponer funciones adicionales
 window.finishAssignmentFromProject = finishAssignmentFromProject;
 window.openAssignmentModalFromProject = openAssignmentModalFromProject;
+
+// ============ EVENT DELEGATION GLOBAL PARA BOTÓN ASIGNAR RECURSO ============
+// Event delegation global para capturar clics en botones dinámicos del modal de proyecto
+document.addEventListener('click', function(e) {
+    const target = e.target;
+    
+    // Verificar si el click fue en el botón Asignar Recurso o dentro de él
+    if (target && (target.id === 'project-add-assignment' || target.closest('#project-add-assignment'))) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🔘 [GLOBAL DELEGATION] Botón Asignar Recurso clickeado');
+        
+        // Llamar a la función
+        if (typeof openAssignmentModalFromProject === 'function') {
+            openAssignmentModalFromProject();
+        } else {
+            console.error('❌ Función openAssignmentModalFromProject no está definida');
+        }
+        
+        return false;
+    }
+}, true); // Usar capture phase para mayor prioridad

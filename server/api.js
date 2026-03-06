@@ -1441,11 +1441,45 @@ app.post('/api/employees-v2', async (req, res) => {
         [email]
       );
       if (dupe.rowCount > 0) {
-        return res.status(409).json({ error: 'Email already exists' });
+        return res.status(409).json({ error: 'El correo electrónico ya está registrado' });
       }
     } catch (e) {
       console.error('Email existence check failed:', e);
       return res.status(500).json({ error: 'Server error while checking email' });
+    }
+  }
+
+  // Validate and check employee_code for duplicates
+  let finalEmployeeCode = employee_code;
+  if (finalEmployeeCode) {
+    try {
+      const codeDupe = await db.query(
+        `SELECT 1 FROM employees_v2 WHERE employee_code = $1 LIMIT 1`,
+        [finalEmployeeCode]
+      );
+      if (codeDupe.rowCount > 0) {
+        return res.status(409).json({ 
+          error: `El código de empleado "${finalEmployeeCode}" ya existe. Por favor usa un código diferente o déjalo vacío para generar uno automático.` 
+        });
+      }
+    } catch (e) {
+      console.error('Employee code check failed:', e);
+      return res.status(500).json({ error: 'Error verificando código de empleado' });
+    }
+  } else {
+    // Generate automatic employee code if not provided: EMP-YYYY-NNNN
+    try {
+      const year = new Date().getFullYear();
+      const countResult = await db.query(
+        `SELECT COUNT(*) as count FROM employees_v2 WHERE employee_code LIKE $1`,
+        [`EMP-${year}-%`]
+      );
+      const count = parseInt(countResult.rows[0].count) + 1;
+      finalEmployeeCode = `EMP-${year}-${String(count).padStart(4, '0')}`;
+      console.log(`📝 Código de empleado generado automáticamente: ${finalEmployeeCode}`);
+    } catch (e) {
+      console.error('Error generating employee code:', e);
+      finalEmployeeCode = `EMP-${Date.now()}`; // Fallback
     }
   }
 
@@ -1502,7 +1536,7 @@ app.post('/api/employees-v2', async (req, res) => {
       RETURNING *`,
       [
         first_name, last_name, email, phone || null, personal_phone || null,
-        employee_code || null, resolvedPositionId || null, resolvedEntityId || null,
+        finalEmployeeCode || null, resolvedPositionId || null, resolvedEntityId || null,
         resolvedAreaId || null, resolvedProjectId || null, resolvedCellId || null,
         hireDateNormalized, start_date || null, birth_date || null,
         address || null, exterior_number || null, interior_number || null, colonia || null, 
@@ -1555,9 +1589,21 @@ app.post('/api/employees-v2', async (req, res) => {
       }
     }
     
+    console.log(`✅ Empleado creado exitosamente: ${newEmployee.id} - ${newEmployee.first_name} ${newEmployee.last_name} (${finalEmployeeCode})`);
     res.status(201).json(newEmployee);
   } catch (err) {
-    console.error('Error creating employee', err);
+    console.error('❌ Error creating employee', err);
+    
+    // Manejar errores específicos de PostgreSQL
+    if (err.code === '23505') { // Unique violation
+      if (err.constraint === 'employees_v2_employee_code_key') {
+        return res.status(409).json({ 
+          error: `El código de empleado ya existe. Por favor usa un código diferente o déjalo vacío para generar uno automático.` 
+        });
+      } else if (err.constraint && err.constraint.includes('email')) {
+        return res.status(409).json({ error: 'El correo electrónico ya está registrado' });
+      }
+    }
     res.status(500).json({ error: 'Error creating employee: ' + err.message });
   }
 });
@@ -2594,13 +2640,15 @@ app.put('/api/orders-of-work/:id', async (req, res) => {
   const updates = req.body;
   
   // Crear la lista de campos a actualizar dinámicamente
+  // NOTA: nombre_proyecto, responsable_proyecto, cbt_responsable fueron eliminados en migración 030
+  // Estos campos ahora vienen de la tabla projects a través de la relación M:N
   const allowedFields = [
     'ot_code', 'description', 'status', 'start_date', 'end_date',
-    'folio_principal_santec', 'folio_santec', 'nombre_proyecto',
+    'folio_principal_santec', 'folio_santec',
     'tipo_servicio', 'tecnologia', 'aplicativo',
     'fecha_inicio_santander', 'fecha_fin_santander', 'fecha_inicio_proveedor', 'fecha_fin_proveedor',
     'horas_acordadas', 'semaforo_esfuerzo', 'semaforo_plazo', 'lider_delivery',
-    'autorizacion_rdp', 'responsable_proyecto', 'cbt_responsable', 'proveedor',
+    'autorizacion_rdp', 'proveedor',
     'fecha_inicio_real', 'fecha_fin_real', 'fecha_entrega_proveedor', 'dias_desvio_entrega',
     'ambiente', 'fecha_creacion', 'fts', 'estimacion_elab_pruebas',
     'costo_hora_servicio_proveedor', 'costo_ot', 'monto_servicio_proveedor', 'monto_servicio_proveedor_iva',
@@ -2628,13 +2676,27 @@ app.put('/api/orders-of-work/:id', async (req, res) => {
   
   try {
     const query = `UPDATE orders_of_work SET ${setFields.join(', ')} WHERE id = $1 RETURNING *`;
+    console.log('🔍 Executing OT update query:', query);
+    console.log('📝 Values:', values);
+    
     const result = await db.query(query, values);
     
-    if (result.rowCount === 0) return res.status(404).json({ error: 'OT no encontrada' });
+    if (result.rowCount === 0) {
+      console.error('❌ OT not found with id:', id);
+      return res.status(404).json({ error: 'OT no encontrada' });
+    }
+    
+    console.log('✅ OT updated successfully:', result.rows[0].id);
     res.json(result.rows[0]);
   } catch (err) {
-    console.error('Error updating order of work:', err);
-    res.status(500).json({ error: 'Error updating order of work', details: err.message });
+    console.error('❌ Error updating order of work:', err);
+    console.error('Query attempted:', setFields.join(', '));
+    console.error('Values:', values);
+    res.status(500).json({ 
+      error: 'Error updating order of work', 
+      details: err.message,
+      hint: err.hint || 'Revisa los tipos de datos enviados'
+    });
   }
 });
 
@@ -3467,7 +3529,7 @@ app.get('/api/reports/resources-by-project', async (req, res) => {
             'employee_id', e.id,
             'employee_name', e.first_name || ' ' || e.last_name,
             'position', mc_position.item,
-            'role', pa.role,
+            'role', pa.role_name,
             'start_date', pa.start_date,
             'end_date', pa.end_date,
             'allocation_percentage', pa.allocation_percentage,
@@ -3519,7 +3581,7 @@ app.get('/api/reports/projects-by-resource', async (req, res) => {
           json_build_object(
             'project_id', p.id,
             'project_name', p.name,
-            'role', pa.role,
+            'role', pa.role_name,
             'start_date', pa.start_date,
             'end_date', pa.end_date,
             'allocation_percentage', pa.allocation_percentage,

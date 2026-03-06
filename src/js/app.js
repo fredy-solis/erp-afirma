@@ -310,7 +310,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // Mapear todas las columnas
                         folio_principal_santec: columnMap.folio_principal_santec >= 0 ? row[columnMap.folio_principal_santec] : null,
                         folio_santec: columnMap.folio_santec >= 0 ? row[columnMap.folio_santec] : null,
-                        status: columnMap.status >= 0 ? row[columnMap.status] : 'Pendiente',
+                        status: columnMap.status >= 0 ? row[columnMap.status] : 'en ejecucion',
                         description: columnMap.description >= 0 ? row[columnMap.description] : null,
                         tipo_servicio: columnMap.tipo_servicio >= 0 ? row[columnMap.tipo_servicio] : null,
                         tecnologia: columnMap.tecnologia >= 0 ? row[columnMap.tecnologia] : null,
@@ -564,12 +564,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             const estadoSelect = `
                 <select onchange="window.updateOTImportCell(${idx}, 'status', this.value)"
                     style="width:100%;padding:4px;border:1px solid #ccc;border-radius:4px;">
-                    <option value="Pendiente" ${row.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
-                    <option value="En Progreso" ${row.status === 'En Progreso' ? 'selected' : ''}>En Progreso</option>
-                    <option value="Activo" ${row.status === 'Activo' ? 'selected' : ''}>Activo</option>
-                    <option value="Completado" ${row.status === 'Completado' ? 'selected' : ''}>Completado</option>
+                    <option value="Cancelado sin importe" ${row.status === 'Cancelado sin importe' ? 'selected' : ''}>Cancelado sin importe</option>
                     <option value="Cerrado" ${row.status === 'Cerrado' ? 'selected' : ''}>Cerrado</option>
-                    <option value="Cancelado" ${row.status === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
+                    <option value="En autorizacion de cierre" ${row.status === 'En autorizacion de cierre' ? 'selected' : ''}>En autorizacion de cierre</option>
+                    <option value="en ejecucion" ${row.status === 'en ejecucion' ? 'selected' : ''}>en ejecucion</option>
+                    <option value="Formalizacion" ${row.status === 'Formalizacion' ? 'selected' : ''}>Formalizacion</option>
                 </select>
             `;
             
@@ -819,7 +818,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                     folio_principal: row[idxFolioPrincipal],
                                     folio_santec: row[idxFolioSantec],
                                     description: row[idxNombreProyecto],
-                                    status: 'Pendiente',
+                                    status: 'en ejecucion',
                                     start_date: '',
                                     end_date: ''
                                 });
@@ -1856,6 +1855,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const addCandidateBtn = document.getElementById('add-candidate-btn');
     const modalClose = document.getElementById('modal-close');
     const candidateModalClose = document.getElementById('candidate-modal-close');
+    const candidateCancelBtn = document.getElementById('candidate-cancel');
     const cancelBtn = document.getElementById('employee-cancel');
 
     // Load catalog dropdowns for employee form
@@ -2709,6 +2709,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         closeCandidateModal();
     });
     
+    // Add event listener for candidate cancel button
+    candidateCancelBtn?.addEventListener('click', () => {
+        closeCandidateModal();
+    });
+    
     candidateModal.addEventListener('click', (e) => {
         if (e.target === candidateModal) closeCandidateModal();
     });
@@ -2833,6 +2838,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 text: 'El apellido solo puede contener letras'
             });
             return;
+        }
+        
+        // Validar código de empleado duplicado (solo al crear, no al editar)
+        if (!id && code) {
+            try {
+                const existingEmployees = await window.fetchEmployees();
+                const codeExists = existingEmployees.some(emp => emp.employee_code === code);
+                if (codeExists) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Código duplicado',
+                        html: `El código <strong>${code}</strong> ya está en uso.<br>Usa un código diferente o déjalo vacío para generar uno automático.`
+                    });
+                    return;
+                }
+            } catch (err) {
+                console.error('Error verificando código:', err);
+                // Continuar de todos modos, el backend también validará
+            }
         }
 
         // Validar teléfono corporativo: exactamente 10 dígitos (si se proporciona)
@@ -2990,11 +3014,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
         } catch (err) {
-            Swal.fire({
-                icon: 'error',
-                title: 'Error guardando empleado',
-                text: err.message || err
-            });
+            // No mostrar alerta de error aquí porque employees.js ya lo maneja
             console.error('❌ Error guardando empleado:', err);
             return;
         }
@@ -3239,6 +3259,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (projectId && window.loadProjectAssignments) {
                 console.log('📊 Cargando asignaciones del proyecto:', projectId);
                 window.loadProjectAssignments(projectId);
+                
+                // Si está en modo viewOnly, ocultar botones de acción después de cargar
+                const projectModal = document.getElementById('project-modal');
+                const isViewOnly = projectModal?.dataset.viewOnly === 'true';
+                if (isViewOnly) {
+                    setTimeout(() => {
+                        const finishButtons = document.querySelectorAll('#project-assignments-tbody button[onclick^="finishAssignmentFromProject"]');
+                        finishButtons.forEach(btn => btn.style.display = 'none');
+                    }, 200);
+                }
             }
         }
         
@@ -3470,8 +3500,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.warn('⚠️ Click ignorado - modal no visible o sin tabName');
             }
         } else {
-            // Debug para otros clics
-            if (e.target.classList.contains('tab-button')) {
+            // Debug para otros clics solo dentro de modales (ignorar tabs de reportes)
+            if (e.target.classList.contains('tab-button') && e.target.closest('.modal')) {
                 console.log('🔍 Click en tab-button pero sin data-tab:', e.target);
             }
         }
@@ -3698,6 +3728,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             cancelBtn.textContent = viewOnly ? 'Cerrar' : 'Cancelar';
         }
         
+        // Controlar visibilidad de pestaña de asignaciones (solo al editar)
+        const assignmentsTab = document.querySelector('button[data-tab="project-assignments"]');
+        const assignmentsContent = document.getElementById('tab-project-assignments');
+        
+        if (!isEdit) {
+            // Ocultar pestaña de asignaciones para proyectos nuevos
+            if (assignmentsTab) assignmentsTab.style.display = 'none';
+            if (assignmentsContent) assignmentsContent.classList.remove('active');
+            
+            // Asegurar que la pestaña de Datos Generales esté activa
+            const generalTab = document.querySelector('button[data-tab="project-general"]');
+            const generalContent = document.getElementById('tab-project-general');
+            if (generalTab) generalTab.classList.add('active');
+            if (generalContent) generalContent.classList.add('active');
+        } else {
+            // Mostrar pestaña de asignaciones para proyectos existentes
+            if (assignmentsTab) assignmentsTab.style.display = '';
+        }
+        
         // Resetear sección OTs (colapsada por defecto solo para nuevo proyecto)
         const otContent = document.getElementById('ot-section-content');
         const otArrow = document.getElementById('ot-section-arrow');
@@ -3761,10 +3810,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     el.disabled = true;
                 }
             });
-            // Ocultar botones de eliminar OTs (debe hacerse después de renderizar)
+            // Ocultar elementos de edición de OTs (debe hacerse después de renderizar)
             setTimeout(() => {
+                const otModeSelector = document.getElementById('ot-mode-selector');
+                const otSelectorExisting = document.getElementById('ot-selector-existing');
+                const otAddExistingBtn = document.getElementById('ot-add-existing-btn');
                 const otDeleteButtons = document.querySelectorAll('#ot-list-body .btn-action-delete');
+                const projectAddAssignmentBtn = document.getElementById('project-add-assignment');
+                const finishAssignmentButtons = document.querySelectorAll('#project-assignments-tbody button[onclick^="finishAssignmentFromProject"]');
+                
+                if (otModeSelector) otModeSelector.style.display = 'none';
+                if (otSelectorExisting) otSelectorExisting.style.display = 'none';
+                if (otAddExistingBtn) otAddExistingBtn.style.display = 'none';
+                if (projectAddAssignmentBtn) projectAddAssignmentBtn.style.display = 'none';
                 otDeleteButtons.forEach(btn => btn.style.display = 'none');
+                finishAssignmentButtons.forEach(btn => btn.style.display = 'none');
             }, 100);
             console.log('🔒 Modo solo lectura activado');
         } else {
@@ -3781,9 +3841,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                     el.disabled = false;
                 }
             });
-            // Mostrar botones de eliminar OTs
+            // Mostrar elementos de edición de OTs
             setTimeout(() => {
+                const otModeSelector = document.getElementById('ot-mode-selector');
+                const otSelectorExisting = document.getElementById('ot-selector-existing');
+                const otAddExistingBtn = document.getElementById('ot-add-existing-btn');
                 const otDeleteButtons = document.querySelectorAll('#ot-list-body .btn-action-delete');
+                const projectAddAssignmentBtn = document.getElementById('project-add-assignment');
+                
+                if (otModeSelector) otModeSelector.style.display = 'flex';
+                if (otSelectorExisting) otSelectorExisting.style.display = 'block';
+                if (otAddExistingBtn) otAddExistingBtn.style.display = '';
+                if (projectAddAssignmentBtn) projectAddAssignmentBtn.style.display = '';
                 otDeleteButtons.forEach(btn => btn.style.display = '');
             }, 100);
             console.log('✏️ Modo edición activado');
@@ -3791,6 +3860,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         projectModal.style.display = 'flex';
     }
+    
+    // Exponer función para ser usada desde otros módulos (ej: assignments.js)
+    window.openProjectModal = openProjectModal;
 
     async function loadAndRenderOTs(projectId) {
         if (!projectId) {
@@ -4096,7 +4168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (otCode) otCode.value = '';
         if (otDesc) otDesc.value = '';
-        if (otStatus) otStatus.value = 'Pendiente';
+        if (otStatus) otStatus.value = 'en ejecucion';
         if (otStart) otStart.value = '';
         if (otEnd) otEnd.value = '';
         if (otCosto) otCosto.value = '';
@@ -4144,7 +4216,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             const otCode = otCodeEl.value.trim();
             const otDescription = otDescEl?.value.trim() || '';
-            const otStatus = otStatusEl?.value || 'Pendiente';
+            const otStatus = otStatusEl?.value || 'en ejecucion';
             const otStart = otStartEl?.value || '';
             const otEnd = otEndEl?.value || '';
             const otCostoEl = document.getElementById('ot-costo');
@@ -4251,7 +4323,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 id: otData.id, // ID obligatorio para OTs existentes
                 ot_code: otData.ot_code || otData.ot,
                 description: otData.description || otData.tipo_servicio || otData.perfil || '',
-                status: otData.status || 'Pendiente',
+                status: otData.status || 'en ejecucion',
                 start_date: otData.start_date || otData.fecha_inicio || '',
                 end_date: otData.end_date || otData.fecha_fin || ''
             };
@@ -4638,7 +4710,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Renderizar tabla de OTs (con relación M:N - una fila por cada OT × Proyecto)
+    // Renderizar tabla de OTs usando DataTables
     function renderOrdersOfWork() {
         const loading = document.getElementById('ot-grid-loading');
         const table = document.getElementById('ot-table');
@@ -4658,6 +4730,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (!tbody) return;
         
+        // Si DataTable ya existe, destruirlo para recrearlo
+        if ($.fn.DataTable.isDataTable('#ot-table')) {
+            $('#ot-table').DataTable().destroy();
+        }
+        
         tbody.innerHTML = '';
         
         // Agrupar por ot_code para detectar OTs con múltiples proyectos
@@ -4670,65 +4747,138 @@ document.addEventListener('DOMContentLoaded', async () => {
             otGroups[code].push(ot);
         });
         
-        filteredOrdersOfWork.forEach((ot, index) => {
-            const tr = document.createElement('tr');
-            
-            // Si la OT tiene múltiples proyectos, destacarla con borde azul
+        // Formatear valores
+        const formatCurrency = (val) => val ? `$${parseFloat(val).toLocaleString('es-MX', {minimumFractionDigits: 2})}` : '-';
+        const formatDate = (val) => val ? new Date(val).toLocaleDateString('es-MX') : '-';
+        const formatPercent = (val) => val ? `${val}%` : '-';
+        
+        // Preparar datos para DataTables
+        const tableData = filteredOrdersOfWork.map(ot => {
             const multiProject = otGroups[ot.ot_code] && otGroups[ot.ot_code].length > 1;
-            if (multiProject) {
-                tr.style.borderLeft = '4px solid #007bff';
-                tr.style.backgroundColor = '#f0f8ff';
-            }
             
-            // Formatear valores
-            const formatCurrency = (val) => val ? `$${parseFloat(val).toLocaleString('es-MX', {minimumFractionDigits: 2})}` : '-';
-            const formatDate = (val) => val ? new Date(val).toLocaleDateString('es-MX') : '-';
-            const formatPercent = (val) => val ? `${val}%` : '-';
-            
-            tr.innerHTML = `
-                <td>
-                    ${multiProject ? '<span style="color:#007bff;font-weight:bold;" title="OT vinculada a múltiples proyectos">🔗</span> ' : ''}
-                    ${ot.ot_code || '-'}
-                </td>
-                <td>${ot.folio_principal_santec || '-'}</td>
-                <td><span style="background:#e0f2fe;color:#0369a1;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">${ot.celula_name || '-'}</span></td>
-                <td>${ot.folio_santec || '-'}</td>
-                <td>
-                    <strong style="color:#007bff;">${ot.project_name || '-'}</strong>
-                    ${multiProject ? `<div style="font-size:11px;color:#666;">(${otGroups[ot.ot_code].length} proyectos en total)</div>` : ''}
-                </td>
-                <td><span class="badge badge-${getStatusClass(ot.status)}">${ot.status || 'Pendiente'}</span></td>
-                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ot.description || ''}">${ot.description || '-'}</td>
-                <td>${ot.tipo_servicio || '-'}</td>
-                <td>${ot.tecnologia || '-'}</td>
-                <td>${ot.aplicativo || '-'}</td>
-                <td>${formatDate(ot.fecha_inicio_proveedor)}</td>
-                <td>${formatDate(ot.fecha_fin_proveedor)}</td>
-                <td>${ot.lider_delivery || '-'}</td>
-                <td>${ot.responsable_proyecto || '-'}</td>
-                <td>${ot.cbt_responsable || '-'}</td>
-                <td>${formatCurrency(ot.monto_servicio_proveedor)}</td>
-                <td>${formatCurrency(ot.costo_ot)}</td>
-                <td>${ot.horas || '-'}</td>
-                <td>${formatPercent(ot.porcentaje_ejecucion)}</td>
-                <td>
-                    <button onclick="editOT(${ot.id})" class="btn-icon" title="Editar OT">✏️</button>
-                    <button onclick="viewOTDetails(${ot.id})" class="btn-icon" title="Ver detalles">👁️</button>
-                    <button onclick="deleteOT(${ot.id})" class="btn-icon" title="Eliminar OT">🗑️</button>
-                </td>
-            `;
-            
-            tbody.appendChild(tr);
+            return [
+                (multiProject ? '<span style="color:#007bff;font-weight:bold;" title="OT vinculada a múltiples proyectos">🔗</span> ' : '') + (ot.ot_code || '-'),
+                ot.folio_principal_santec || '-',
+                `<span style="background:#e0f2fe;color:#0369a1;padding:4px 8px;border-radius:4px;font-size:12px;font-weight:500;">${ot.celula_name || '-'}</span>`,
+                ot.folio_santec || '-',
+                `<strong style="color:#007bff;">${ot.project_name || '-'}</strong>${multiProject ? `<div style="font-size:11px;color:#666;">(${otGroups[ot.ot_code].length} proyectos en total)</div>` : ''}`,
+                `<span class="badge badge-${getStatusClass(ot.status)}">${ot.status || 'en ejecucion'}</span>`,
+                `<div style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ot.description || ''}">${ot.description || '-'}</div>`,
+                ot.tipo_servicio || '-',
+                ot.tecnologia || '-',
+                ot.aplicativo || '-',
+                formatDate(ot.fecha_inicio_proveedor),
+                formatDate(ot.fecha_fin_proveedor),
+                ot.lider_delivery || '-',
+                ot.responsable_proyecto || '-',
+                ot.cbt_responsable || '-',
+                formatCurrency(ot.monto_servicio_proveedor),
+                formatCurrency(ot.costo_ot),
+                ot.horas || '-',
+                formatPercent(ot.porcentaje_ejecucion),
+                `<button onclick="editOT(${ot.id})" class="btn-icon" title="Editar OT">✏️</button>
+                 <button onclick="viewOTDetails(${ot.id})" class="btn-icon" title="Ver detalles">👁️</button>
+                 <button onclick="deleteOT(${ot.id})" class="btn-icon" title="Eliminar OT">🗑️</button>`
+            ];
         });
+        
+        // Inicializar DataTable con configuración avanzada
+        const dataTable = $('#ot-table').DataTable({
+            data: tableData,
+            pageLength: 25,
+            lengthMenu: [[10, 25, 50, 100, -1], [10, 25, 50, 100, "Todos"]],
+            language: {
+                decimal: "",
+                emptyTable: "No hay datos disponibles",
+                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                infoEmpty: "Mostrando 0 a 0 de 0 registros",
+                infoFiltered: "(filtrado de _MAX_ registros totales)",
+                infoPostFix: "",
+                thousands: ",",
+                lengthMenu: "Mostrar _MENU_ registros",
+                loadingRecords: "Cargando...",
+                processing: "Procesando...",
+                search: "Buscar:",
+                zeroRecords: "No se encontraron registros coincidentes",
+                paginate: {
+                    first: "Primero",
+                    last: "Último",
+                    next: "Siguiente",
+                    previous: "Anterior"
+                },
+                aria: {
+                    sortAscending: ": activar para ordenar la columna ascendente",
+                    sortDescending: ": activar para ordenar la columna descendente"
+                }
+            },
+            dom: 'Bfrtip',
+            buttons: [
+                {
+                    extend: 'excel',
+                    text: '📊 Exportar a Excel',
+                    title: 'Ordenes_de_Trabajo',
+                    exportOptions: {
+                        columns: ':not(:last-child)' // Excluir columna de acciones
+                    }
+                },
+                {
+                    extend: 'pdf',
+                    text: '📄 Exportar a PDF',
+                    title: 'Ordenes de Trabajo',
+                    exportOptions: {
+                        columns: ':not(:last-child)'
+                    },
+                    orientation: 'landscape',
+                    pageSize: 'LEGAL'
+                },
+                {
+                    text: '🔄 Recargar',
+                    action: function () {
+                        window.loadOrdersOfWork();
+                    }
+                }
+            ],
+            order: [[0, 'desc']], // Ordenar por número OT descendente
+            columnDefs: [
+                { orderable: false, targets: -1 } // Deshabilitar orden en columna de acciones
+            ],
+            initComplete: function () {
+                // Agregar filtros por columna en el footer
+                this.api().columns([0, 3, 4, 5, 7, 8, 9]).every(function () {
+                    let column = this;
+                    let title = $(column.header()).text();
+                    
+                    // Crear select para filtrar
+                    let select = $('<select class="column-filter"><option value="">Filtrar ' + title + '</option></select>')
+                        .appendTo($(column.footer()).empty())
+                        .on('change', function () {
+                            let val = $.fn.dataTable.util.escapeRegex($(this).val());
+                            column.search(val ? '^' + val + '$' : '', true, false).draw();
+                        });
+                    
+                    // Agregar opciones únicas de la columna
+                    column.data().unique().sort().each(function (d, j) {
+                        // Extraer texto plano de HTML
+                        let text = $('<div>').html(d).text();
+                        if (text && text !== '-') {
+                            select.append('<option value="' + text + '">' + text + '</option>');
+                        }
+                    });
+                });
+            }
+        });
+        
+        console.log('✅ DataTable inicializado con', filteredOrdersOfWork.length, 'registros');
     }
 
     // Obtener clase de badge según el estado
     function getStatusClass(status) {
         const statusMap = {
-            'Pendiente': 'warning',
-            'En Progreso': 'info',
-            'Completada': 'success',
-            'Cancelada': 'danger'
+            'Cancelado sin importe': 'secondary',
+            'Cerrado': 'success',
+            'En autorizacion de cierre': 'warning',
+            'en ejecucion': 'info',
+            'Formalizacion': 'primary'
         };
         return statusMap[status] || 'secondary';
     }
@@ -4750,7 +4900,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <h3 style="margin-bottom:16px;color:#007bff;">📋 Información General</h3>
                     <p><strong>Número OT:</strong> ${ot.ot_code}</p>
                     <p><strong>Proyecto:</strong> ${ot.project_name || ot.nombre_proyecto || 'N/A'}</p>
-                    <p><strong>Estado:</strong> ${ot.status || 'Pendiente'}</p>
+                    <p><strong>Estado:</strong> ${ot.status || 'en ejecucion'}</p>
                     <p><strong>Descripción:</strong> ${ot.description || 'N/A'}</p>
                     
                     <h3 style="margin:16px 0;color:#007bff;">🏢 Folios y Clasificación</h3>
@@ -4860,7 +5010,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Cargar datos en el formulario
             document.getElementById('ot-edit-id').value = ot.id || '';
             document.getElementById('ot-edit-code').value = ot.ot_code || '';
-            document.getElementById('ot-edit-status').value = ot.status || 'Pendiente';
+            document.getElementById('ot-edit-status').value = ot.status || 'en ejecucion';
             document.getElementById('ot-edit-project').value = ot.nombre_proyecto || ot.project_name || '';
             document.getElementById('ot-edit-description').value = ot.description || '';
             
@@ -4939,133 +5089,172 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Event listeners para el modal de edición de OT
-    document.addEventListener('DOMContentLoaded', function() {
-        // Botón cerrar modal
-        const closeBtn = document.getElementById('ot-edit-modal-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', closeOTEditModal);
+    // Event listeners para el modal de edición de OT usando event delegation
+    // Botón cerrar modal
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'ot-edit-modal-close') {
+            e.preventDefault();
+            closeOTEditModal();
         }
+    });
 
-        // Botón cancelar
-        const cancelBtn = document.getElementById('ot-edit-cancel');
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', closeOTEditModal);
+    // Botón cancelar
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'ot-edit-cancel') {
+            e.preventDefault();
+            closeOTEditModal();
         }
+    });
 
-        // Cerrar al hacer click fuera del modal
+    // Cerrar al hacer click fuera del modal
+    document.addEventListener('click', function(e) {
         const modal = document.getElementById('ot-edit-modal');
-        if (modal) {
-            modal.addEventListener('click', function(e) {
-                if (e.target === modal) {
-                    closeOTEditModal();
-                }
-            });
+        if (e.target === modal) {
+            closeOTEditModal();
         }
+    });
 
-        // Submit del formulario de edición
-        const form = document.getElementById('ot-edit-form');
-        if (form) {
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
+    // Submit del formulario de edición usando event delegation
+    document.addEventListener('submit', async function(e) {
+        // Solo capturar submit del formulario de edición de OT
+        if (e.target && e.target.id === 'ot-edit-form') {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔒 Formulario OT edit submit capturado');
+            
+            const otId = document.getElementById('ot-edit-id').value;
+            if (!otId) {
+                Swal.fire({ icon: 'error', title: 'ID de OT no encontrado' });
+                return false;
+            }
+            
+            // Construir objeto con los datos actualizados
+            // NOTA: nombre_proyecto, responsable_proyecto, cbt_responsable NO se actualizan aquí
+            // Estos campos vienen de la tabla projects a través de la relación M:N
+            const updates = {
+                ot_code: document.getElementById('ot-edit-code').value.trim(),
+                status: document.getElementById('ot-edit-status').value,
+                description: document.getElementById('ot-edit-description').value.trim(),
                 
-                const otId = document.getElementById('ot-edit-id').value;
-                if (!otId) {
-                    Swal.fire({ icon: 'error', title: 'ID de OT no encontrado' });
-                    return;
+                // Folios
+                folio_principal_santec: document.getElementById('ot-edit-folio-principal').value.trim() || null,
+                folio_santec: document.getElementById('ot-edit-folio-santec').value.trim() || null,
+                tipo_servicio: document.getElementById('ot-edit-tipo-servicio').value.trim() || null,
+                tecnologia: document.getElementById('ot-edit-tecnologia').value.trim() || null,
+                aplicativo: document.getElementById('ot-edit-aplicativo').value.trim() || null,
+                
+                // Fechas
+                fecha_inicio_santander: document.getElementById('ot-edit-fecha-inicio-santander').value || null,
+                fecha_fin_santander: document.getElementById('ot-edit-fecha-fin-santander').value || null,
+                fecha_entrega_proveedor: document.getElementById('ot-edit-fecha-entrega-proveedor').value || null,
+                fecha_inicio_proveedor: document.getElementById('ot-edit-fecha-inicio-proveedor').value || null,
+                fecha_fin_proveedor: document.getElementById('ot-edit-fecha-fin-proveedor').value || null,
+                dias_desvio_entrega: document.getElementById('ot-edit-dias-desvio').value || null,
+                fecha_inicio_real: document.getElementById('ot-edit-fecha-inicio-real').value || null,
+                fecha_fin_real: document.getElementById('ot-edit-fecha-fin-real').value || null,
+                fecha_creacion: document.getElementById('ot-edit-fecha-creacion').value || null,
+                
+                // Responsables
+                lider_delivery: document.getElementById('ot-edit-lider-delivery').value.trim() || null,
+                proveedor: document.getElementById('ot-edit-proveedor').value.trim() || null,
+                
+                // Montos e indicadores
+                horas_acordadas: document.getElementById('ot-edit-horas-acordadas').value || null,
+                horas: document.getElementById('ot-edit-horas').value || null,
+                costo_hora_servicio_proveedor: document.getElementById('ot-edit-costo-hora').value || null,
+                costo_ot: document.getElementById('ot-edit-costo-ot').value || null,
+                monto_servicio_proveedor: document.getElementById('ot-edit-monto-servicio').value || null,
+                monto_servicio_proveedor_iva: document.getElementById('ot-edit-monto-iva').value || null,
+                porcentaje_ejecucion: document.getElementById('ot-edit-porcentaje').value || null,
+                semaforo_esfuerzo: document.getElementById('ot-edit-semaforo-esfuerzo').value || null,
+                semaforo_plazo: document.getElementById('ot-edit-semaforo-plazo').value || null,
+                
+                // Información adicional
+                ambiente: document.getElementById('ot-edit-ambiente').value.trim() || null,
+                clase_coste: document.getElementById('ot-edit-clase-coste').value.trim() || null,
+                folio_pds: document.getElementById('ot-edit-folio-pds').value.trim() || null,
+                programa: document.getElementById('ot-edit-programa').value.trim() || null,
+                front_negocio: document.getElementById('ot-edit-front-negocio').value.trim() || null,
+                fts: document.getElementById('ot-edit-fts').value.trim() || null,
+                autorizacion_rdp: document.getElementById('ot-edit-autorizacion-rdp').value.trim() || null,
+                vobo_front_negocio: document.getElementById('ot-edit-vobo-front').value.trim() || null,
+                fecha_vobo_front_negocio: document.getElementById('ot-edit-fecha-vobo-front').value || null,
+                estimacion_elab_pruebas: document.getElementById('ot-edit-estimacion-pruebas').value.trim() || null
+            };
+            
+            try {
+                // Deshabilitar botón de submit
+                const submitBtn = document.getElementById('ot-edit-submit');
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Guardando...';
+                
+                const response = await fetch(
+                    window.getApiUrl ? window.getApiUrl(`/api/orders-of-work/${otId}`) : `/api/orders-of-work/${otId}`,
+                    {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updates)
+                    }
+                );
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Error al actualizar OT');
                 }
                 
-                // Construir objeto con los datos actualizados
-                const updates = {
-                    ot_code: document.getElementById('ot-edit-code').value.trim(),
-                    status: document.getElementById('ot-edit-status').value,
-                    nombre_proyecto: document.getElementById('ot-edit-project').value.trim(),
-                    description: document.getElementById('ot-edit-description').value.trim(),
-                    
-                    // Folios
-                    folio_principal_santec: document.getElementById('ot-edit-folio-principal').value.trim() || null,
-                    folio_santec: document.getElementById('ot-edit-folio-santec').value.trim() || null,
-                    tipo_servicio: document.getElementById('ot-edit-tipo-servicio').value.trim() || null,
-                    tecnologia: document.getElementById('ot-edit-tecnologia').value.trim() || null,
-                    aplicativo: document.getElementById('ot-edit-aplicativo').value.trim() || null,
-                    
-                    // Fechas
-                    fecha_inicio_santander: document.getElementById('ot-edit-fecha-inicio-santander').value || null,
-                    fecha_fin_santander: document.getElementById('ot-edit-fecha-fin-santander').value || null,
-                    fecha_entrega_proveedor: document.getElementById('ot-edit-fecha-entrega-proveedor').value || null,
-                    fecha_inicio_proveedor: document.getElementById('ot-edit-fecha-inicio-proveedor').value || null,
-                    fecha_fin_proveedor: document.getElementById('ot-edit-fecha-fin-proveedor').value || null,
-                    dias_desvio_entrega: document.getElementById('ot-edit-dias-desvio').value || null,
-                    fecha_inicio_real: document.getElementById('ot-edit-fecha-inicio-real').value || null,
-                    fecha_fin_real: document.getElementById('ot-edit-fecha-fin-real').value || null,
-                    fecha_creacion: document.getElementById('ot-edit-fecha-creacion').value || null,
-                    
-                    // Responsables
-                    lider_delivery: document.getElementById('ot-edit-lider-delivery').value.trim() || null,
-                    responsable_proyecto: document.getElementById('ot-edit-responsable-proyecto').value.trim() || null,
-                    cbt_responsable: document.getElementById('ot-edit-cbt-responsable').value.trim() || null,
-                    proveedor: document.getElementById('ot-edit-proveedor').value.trim() || null,
-                    
-                    // Montos e indicadores
-                    horas_acordadas: document.getElementById('ot-edit-horas-acordadas').value || null,
-                    horas: document.getElementById('ot-edit-horas').value || null,
-                    costo_hora_servicio_proveedor: document.getElementById('ot-edit-costo-hora').value || null,
-                    costo_ot: document.getElementById('ot-edit-costo-ot').value || null,
-                    monto_servicio_proveedor: document.getElementById('ot-edit-monto-servicio').value || null,
-                    monto_servicio_proveedor_iva: document.getElementById('ot-edit-monto-iva').value || null,
-                    porcentaje_ejecucion: document.getElementById('ot-edit-porcentaje').value || null,
-                    semaforo_esfuerzo: document.getElementById('ot-edit-semaforo-esfuerzo').value || null,
-                    semaforo_plazo: document.getElementById('ot-edit-semaforo-plazo').value || null,
-                    
-                    // Información adicional
-                    ambiente: document.getElementById('ot-edit-ambiente').value.trim() || null,
-                    clase_coste: document.getElementById('ot-edit-clase-coste').value.trim() || null,
-                    folio_pds: document.getElementById('ot-edit-folio-pds').value.trim() || null,
-                    programa: document.getElementById('ot-edit-programa').value.trim() || null,
-                    front_negocio: document.getElementById('ot-edit-front-negocio').value.trim() || null,
-                    fts: document.getElementById('ot-edit-fts').value.trim() || null,
-                    autorizacion_rdp: document.getElementById('ot-edit-autorizacion-rdp').value.trim() || null,
-                    vobo_front_negocio: document.getElementById('ot-edit-vobo-front').value.trim() || null,
-                    fecha_vobo_front_negocio: document.getElementById('ot-edit-fecha-vobo-front').value || null,
-                    estimacion_elab_pruebas: document.getElementById('ot-edit-estimacion-pruebas').value.trim() || null
-                };
+                const updatedOT = await response.json();
                 
-                try {
-                    // Deshabilitar botón de submit
-                    const submitBtn = document.getElementById('ot-edit-submit');
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = '⏳ Guardando...';
-                    
-                    const response = await fetch(
-                        window.getApiUrl ? window.getApiUrl(`/api/orders-of-work/${otId}`) : `/api/orders-of-work/${otId}`,
-                        {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(updates)
-                        }
-                    );
-                    
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'Error al actualizar OT');
-                    }
-                    
-                    Swal.fire({ 
+                // Mostrar confirmación con información de la OT actualizada
+                await Swal.fire({ 
                         icon: 'success', 
-                        title: 'OT actualizada correctamente',
-                        timer: 2000,
-                        showConfirmButton: false
+                        title: '✅ OT Actualizada Exitosamente',
+                        html: `
+                            <div style="text-align:left;padding:10px;">
+                                <p style="margin:8px 0;font-size:15px;color:#1f2937;">
+                                    <strong>📋 Código:</strong> ${updates.ot_code}
+                                </p>
+                                <p style="margin:8px 0;font-size:15px;color:#1f2937;">
+                                    <strong>📊 Estado:</strong> <span style="color:#059669;font-weight:600">${updates.status}</span>
+                                </p>
+                                ${updates.description ? `
+                                    <p style="margin:8px 0;font-size:15px;color:#1f2937;">
+                                        <strong>📝 Descripción:</strong> ${updates.description.substring(0, 50)}${updates.description.length > 50 ? '...' : ''}
+                                    </p>
+                                ` : ''}
+                                <p style="margin-top:16px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:13px;color:#6b7280;">
+                                    Los cambios han sido guardados correctamente en la base de datos
+                                </p>
+                            </div>
+                        `,
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#3b82f6',
+                        timer: 4000,
+                        timerProgressBar: true
                     });
                     
                     closeOTEditModal();
-                    window.loadOrdersOfWork();
+                    
+                    // Recargar datos para asegurar que se muestren los cambios
+                    await window.loadOrdersOfWork();
+                    console.log('✅ OT actualizada y datos recargados:', updatedOT);
                     
                 } catch (err) {
                     console.error('Error updating OT:', err);
-                    Swal.fire({ 
+                    await Swal.fire({ 
                         icon: 'error', 
-                        title: 'Error al actualizar OT', 
-                        text: err.message 
+                        title: '❌ Error al Guardar Cambios', 
+                        html: `
+                            <div style="text-align:left;padding:10px;">
+                                <p style="margin:8px 0;font-size:15px;color:#dc2626;">
+                                    ${err.message}
+                                </p>
+                                <p style="margin-top:16px;padding-top:12px;border-top:1px solid #fee;font-size:13px;color:#6b7280;">
+                                    Por favor, verifica los datos e inténtalo nuevamente
+                                </p>
+                            </div>
+                        `,
+                        confirmButtonText: 'Entendido',
+                        confirmButtonColor: '#dc2626'
                     });
                     
                     // Re-habilitar botón
@@ -5073,11 +5262,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     submitBtn.disabled = false;
                     submitBtn.textContent = '💾 Guardar Cambios';
                 }
-            });
-        }
-    });
+                
+                return false;
+            }
+        }, true); // Usar capture phase para interceptar antes que otros handlers
 
-    // Filtros de OTs
+    // DESHABILITADO: Filtros manuales reemplazados por DataTables
+    /*
     const filterOTSearchBtn = document.getElementById('filter-ot-search-btn');
     const filterOTClearBtn = document.getElementById('filter-ot-clear-btn');
     
@@ -5117,6 +5308,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         filteredOrdersOfWork = [...allOrdersOfWork];
         renderOrdersOfWork();
     }
+    */
 
     // Agregar estilos para badges si no existen
     if (!document.getElementById('ot-badge-styles')) {
