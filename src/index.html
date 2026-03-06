@@ -961,9 +961,9 @@
                             </div>
                         </div>
 
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                            <a href="#" id="project-cancel" class="btn-secondary" style="text-decoration:none;display:inline-block;text-align:center;cursor:pointer;">Cancelar</a>
-                            <button type="submit" id="project-submit" class="btn-primary">Guardar Proyecto</button>
+                        <div style="margin-top:20px;padding-top:20px;border-top:1px solid #e6eef8;display:flex;gap:8px;justify-content:flex-end;">
+                            <a href="#" id="project-cancel" class="modal-btn-cancel">❌ Cancelar</a>
+                            <button type="submit" id="project-submit" class="modal-btn-save">💾 Guardar Proyecto</button>
                         </div>
                         </div>
                         
@@ -1146,9 +1146,9 @@
                             <small style="display:block;margin-top:4px;color:#6b7280">Tarifa del recurso en este proyecto (opcional)</small>
                         </div>
 
-                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                            <a href="#" id="assignment-cancel" class="btn-secondary" style="text-decoration:none;display:inline-block;text-align:center;cursor:pointer;">Cancelar</a>
-                            <button type="submit" id="assignment-submit" class="btn-primary">Guardar Asignación</button>
+                        <div style="margin-top:20px;padding-top:20px;border-top:1px solid #e6eef8;display:flex;gap:8px;justify-content:flex-end;">
+                            <a href="#" id="assignment-cancel" class="modal-btn-cancel">❌ Cancelar</a>
+                            <button type="submit" id="assignment-submit" class="modal-btn-save">💾 Guardar Asignación</button>
                         </div>
                     </form>
                 </div>
@@ -1550,9 +1550,9 @@
                                 </select>
                             </div>
                         </div>
-                        <div style="margin-top:16px;display:flex;gap:8px">
-                            <button type="submit" id="vacation-submit">Guardar</button>
-                            <button type="button" id="vacation-cancel">Cancelar</button>
+                        <div style="margin-top:20px;padding-top:20px;border-top:1px solid #e6eef8;display:flex;gap:8px;justify-content:flex-end">
+                            <button type="button" id="vacation-cancel" class="modal-btn-cancel">❌ Cancelar</button>
+                            <button type="submit" id="vacation-submit" class="modal-btn-save">💾 Guardar</button>
                         </div>
                     </form>
                 </div>
@@ -1674,9 +1674,9 @@
                                             <input type="email" id="new-contact-email" placeholder="correo@ejemplo.com *" style="flex:1;min-width:200px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
                                             <input type="tel" id="new-contact-phone" placeholder="Teléfono" style="flex:0.8;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
                                             <input type="text" id="new-contact-location" placeholder="Ubicación" style="flex:0.8;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
-                                            <button type="button" id="add-commercial-contact" style="background:#10b981;color:white;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:500;white-space:nowrap">
-                                                <span style="font-size:18px;margin-right:5px">+</span> Agregar
-                                            </button>
+                                            <a href="#" id="add-commercial-contact" onclick="window.addCommercialContactFromForm();return false;" style="background:#10b981;color:white;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:500;white-space:nowrap;font-size:14px;text-decoration:none;display:inline-block;text-align:center;">
+                                                ➕ Agregar
+                                            </a>
                                         </div>
                                         <small style="color:#6b7280;display:block;margin-top:8px">* Nombre y email son obligatorios</small>
                                     </div>
@@ -1698,8 +1698,8 @@
 
                         <!-- Botones de acción -->
                         <div style="margin-top:20px;padding-top:20px;border-top:1px solid #e6eef8;display:flex;gap:8px;justify-content:flex-end">
-                            <a href="#" id="job-opening-cancel" style="background:#6b7280;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block;">Cancelar</a>
-                            <button type="submit" id="job-opening-submit" style="background:#3b82f6;color:white;border:none;padding:10px 20px;border-radius:6px;cursor:pointer">💾 Guardar Vacante</button>
+                            <a href="#" id="job-opening-cancel" class="modal-btn-cancel">❌ Cancelar</a>
+                            <button type="submit" id="job-opening-submit" class="modal-btn-save">💾 Guardar Vacante</button>
                         </div>
                     </form>
                 </div>
@@ -2098,9 +2098,9 @@
                                 </div>
                             </div>
 
-                            <div style="margin-top:16px;display:flex;gap:8px">
-                                <button type="submit" id="employee-submit">Guardar</button>
-                                <button type="button" id="employee-cancel" >Cancelar</button>
+                            <div style="margin-top:20px;padding-top:20px;border-top:1px solid #e6eef8;display:flex;gap:8px;justify-content:flex-end">
+                                <button type="button" id="employee-cancel" class="modal-btn-cancel">❌ Cancelar</button>
+                                <button type="submit" id="employee-submit" class="modal-btn-save">💾 Guardar</button>
                             </div>
                         </form>
                     </div>

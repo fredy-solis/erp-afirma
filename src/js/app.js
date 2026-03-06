@@ -915,8 +915,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 showCancelButton: true,
                 confirmButtonText: 'Sí, eliminar',
                 cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6'
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280'
             });
             if (!result.isConfirmed) return;
             await fetch((window.getApiUrl ? window.getApiUrl(`/api/vacations/${id}`) : `/api/vacations/${id}`), {
@@ -1069,10 +1069,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 text: 'Los cambios no guardados se perderán',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Sí, cancelar',
+                confirmButtonText: 'Sí, cerrar',
                 cancelButtonText: 'Continuar editando',
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6'
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280'
             });
             if (!result.isConfirmed) return;
         }
@@ -1254,8 +1254,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     showCancelButton: true,
                     confirmButtonText: 'Sí, eliminar',
                     cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6'
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280'
                 });
                 if (!result.isConfirmed) return;
 
@@ -1366,27 +1366,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function confirmCloseJobOpeningModal(e) {
         e.preventDefault();
         
-        // Verificar si hay datos en el formulario
-        const hasData = 
-            document.getElementById('job-company')?.value.trim() ||
-            document.getElementById('job-contact-name')?.value.trim() ||
-            document.getElementById('job-contact-email')?.value.trim() ||
-            document.getElementById('job-position-name')?.value.trim();
-        
-        // Si no hay datos, cerrar directamente
-        if (!hasData) {
-            closeJobOpeningModal();
-            return;
-        }
-        
-        // Mostrar confirmación con SweetAlert
+        // Mostrar confirmación con SweetAlert2 siempre
         const result = await Swal.fire({
             title: '¿Cancelar creación de vacante?',
-            text: 'Los datos ingresados se perderán',
+            text: 'Se perderán los cambios no guardados',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonText: 'Sí, cancelar',
-            cancelButtonText: 'Continuar editando',
+            confirmButtonText: 'Sí, cerrar',
+            cancelButtonText: 'Continuar creando',
             confirmButtonColor: '#ef4444',
             cancelButtonColor: '#3b82f6'
         });
@@ -1401,11 +1388,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     jobOpeningModalClose?.addEventListener('click', confirmCloseJobOpeningModal);
     jobOpeningCancel?.addEventListener('click', confirmCloseJobOpeningModal);
     jobOpeningModal?.addEventListener('click', (e) => {
-        if (e.target === jobOpeningModal) closeJobOpeningModal();
+        if (e.target === jobOpeningModal) confirmCloseJobOpeningModal(e);
     });
 
     // ============ COMMERCIAL CONTACTS MANAGEMENT ============
     let commercialContactsList = []; // Lista temporal de contactos
+
+    // Función manejadora para eliminar contacto (MÉTODO 3: delegación de eventos)
+    const handleDeleteContact = function(e) {
+        // Buscar el botón en el target o sus padres (por si se hace click en el emoji)
+        let target = e.target;
+        let maxDepth = 3; // Máximo 3 niveles hacia arriba
+        let depth = 0;
+        
+        while (target && depth < maxDepth) {
+            if (target.classList && target.classList.contains('delete-contact-btn')) {
+                e.preventDefault();
+                e.stopImmediatePropagation(); // Detener TODOS los eventos
+                
+                const index = parseInt(target.getAttribute('data-contact-index'));
+                deleteCommercialContactByIndex(index);
+                return; // Detener la búsqueda si se encontró el botón
+            }
+            target = target.parentElement;
+            depth++;
+        }
+    };
+
+    // Función global para eliminar contacto por índice (usada por todos los métodos)
+    window.deleteCommercialContactByIndex = function(index) {
+        if (!isNaN(index) && index >= 0 && index < commercialContactsList.length) {
+            const contact = commercialContactsList[index];
+            
+            Swal.fire({
+                title: '¿Eliminar contacto?',
+                text: `Se eliminará ${contact.full_name} de la lista`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, eliminar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    commercialContactsList.splice(index, 1);
+                    renderCommercialContacts();
+                    
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Contacto eliminado',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            });
+        }
+    };
 
     // Función para renderizar la lista de contactos
     function renderCommercialContacts() {
@@ -1446,28 +1484,71 @@ document.addEventListener('DOMContentLoaded', async () => {
             item.className = 'contact-list-item';
             item.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:12px 15px;border-bottom:1px solid #e5e7eb;transition:background 0.2s';
             
-            item.innerHTML = `
-                <div style="flex:1">
-                    <div style="font-weight:600;color:#374151;margin-bottom:4px">
-                        👤 ${contact.full_name}
-                    </div>
-                    <div style="font-size:13px;color:#6b7280">
-                        <span style="margin-right:15px">📧 ${contact.email}</span>
-                        ${contact.phone ? `<span style="margin-right:15px">📱 ${contact.phone}</span>` : ''}
-                        ${contact.location ? `<span>📍 ${contact.location}</span>` : ''}
-                    </div>
+            // Crear el contenido del contacto
+            const contactInfo = document.createElement('div');
+            contactInfo.style.cssText = 'flex:1';
+            contactInfo.innerHTML = `
+                <div style="font-weight:600;color:#374151;margin-bottom:4px">
+                    👤 ${contact.full_name}
                 </div>
-                <button type="button" onclick="window.removeCommercialContact(${index})" 
-                    style="background:#ef4444;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px;transition:background 0.2s"
-                    onmouseover="this.style.background='#dc2626'" 
-                    onmouseout="this.style.background='#ef4444'"
-                    title="Eliminar contacto">
-                    🗑️ Eliminar
-                </button>
+                <div style="font-size:13px;color:#6b7280">
+                    <span style="margin-right:15px">📧 ${contact.email}</span>
+                    ${contact.phone ? `<span style="margin-right:15px">📱 ${contact.phone}</span>` : ''}
+                    ${contact.location ? `<span>📍 ${contact.location}</span>` : ''}
+                </div>
             `;
             
+            // Crear el botón de eliminar con MÚLTIPLES formas de activación
+            const deleteBtn = document.createElement('button');
+            deleteBtn.type = 'button';
+            deleteBtn.setAttribute('data-contact-index', index);
+            deleteBtn.className = 'delete-contact-btn';
+            deleteBtn.style.cssText = 'background:#ef4444;color:white;border:none;padding:8px 12px;border-radius:6px;cursor:pointer;font-size:14px;transition:background 0.2s';
+            deleteBtn.title = 'Eliminar contacto';
+            deleteBtn.innerHTML = '🗑️ Eliminar';
+            
+            // MÉTODO 1: Onclick directo (respaldo más inmediato)
+            deleteBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteCommercialContactByIndex(index);
+            };
+            
+            // MÉTODO 2: Event listener directo en el botón
+            deleteBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteCommercialContactByIndex(index);
+            }, true);
+            
+            // Event listeners para hover
+            deleteBtn.addEventListener('mouseover', function() {
+                this.style.background = '#dc2626';
+            });
+            deleteBtn.addEventListener('mouseout', function() {
+                this.style.background = '#ef4444';
+            });
+            
+            item.appendChild(contactInfo);
+            item.appendChild(deleteBtn);
             listContainer.appendChild(item);
         });
+        
+        // SOLUCIÓN ROBUSTA: Múltiples listeners + atributo onclick de respaldo
+        // 1. Listener en el contenedor específico (más directo)
+        const contactsContainer = document.getElementById('commercial-contacts-list');
+        if (contactsContainer) {
+            // Remover listeners anteriores clonando el nodo
+            const newContainer = contactsContainer.cloneNode(true);
+            contactsContainer.parentNode.replaceChild(newContainer, contactsContainer);
+            
+            // Agregar nuevo listener con captura = true (fase de captura, más temprano)
+            newContainer.addEventListener('click', handleDeleteContact, true);
+        }
+        
+        // 2. Listener global de respaldo
+        document.removeEventListener('click', handleDeleteContact, true);
+        document.addEventListener('click', handleDeleteContact, true);
     }
 
     // Función para agregar contacto desde el formulario fijo
@@ -1545,36 +1626,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Focus en el campo de nombre para agregar otro
         nameInput.focus();
     }
-
-    // Función para eliminar contacto de la lista (expuesta globalmente)
-    window.removeCommercialContact = function(index) {
-        if (index >= 0 && index < commercialContactsList.length) {
-            const contact = commercialContactsList[index];
-            
-            Swal.fire({
-                title: '¿Eliminar contacto?',
-                text: `Se eliminará ${contact.full_name} de la lista`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Sí, eliminar',
-                cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#6b7280'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    commercialContactsList.splice(index, 1);
-                    renderCommercialContacts();
-                    
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Contacto eliminado',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                }
-            });
-        }
-    };
+    
+    // Exponer función globalmente para acceso desde event listeners
+    window.addCommercialContactFromForm = addCommercialContactFromForm;
 
     // Obtener datos de todos los contactos (para enviar al guardar)
     function getCommercialContactsData() {
@@ -1634,10 +1688,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.error('Error cargando contactos comerciales:', err);
         }
     }
-
-    // Event listener para botón "Agregar Contacto"
-    const addContactBtn = document.getElementById('add-commercial-contact');
-    addContactBtn?.addEventListener('click', () => addCommercialContactFromForm());
 
     // Event listener para Enter en los campos del formulario
     ['new-contact-name', 'new-contact-email', 'new-contact-phone', 'new-contact-location'].forEach(inputId => {
@@ -2158,14 +2208,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (!skipConfirmation && !isReadOnly) {
             const result = await Swal.fire({
-                title: '¿Cancelar edición?',
-                text: 'Los cambios no guardados se perderán',
+                title: '¿Cancelar edición de empleado?',
+                text: 'Se perderán los cambios no guardados',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Sí, cancelar',
+                confirmButtonText: 'Sí, cerrar',
                 cancelButtonText: 'Continuar editando',
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6'
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#3b82f6'
             });
             if (!result.isConfirmed) return;
         }
@@ -3310,8 +3360,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     showCancelButton: true,
                     confirmButtonText: 'Sí, eliminar',
                     cancelButtonText: 'Cancelar',
-                    confirmButtonColor: '#d33',
-                    cancelButtonColor: '#3085d6'
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280'
                 });
                 if (!result.isConfirmed) return;
                 await window.deleteEmployee(id);
@@ -3390,8 +3440,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 showCancelButton: true,
                 confirmButtonText: 'Sí, eliminar',
                 cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6'
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280'
             });
             if (!result.isConfirmed) return;
             await window.deleteCandidate(id,'Deleted');
@@ -3533,8 +3583,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 showCancelButton: true,
                 confirmButtonText: 'Sí, eliminar',
                 cancelButtonText: 'Cancelar',
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6'
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280'
             });
             if (!result.isConfirmed) return;
             try {
@@ -4294,14 +4344,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Si está en modo viewOnly, no mostrar confirmación
         if (!skipConfirmation && !isViewOnly) {
             const result = await Swal.fire({
-                title: '¿Cancelar proyecto?',
-                text: 'Los cambios no guardados se perderán',
+                title: '¿Cancelar edición de proyecto?',
+                text: 'Se perderán los cambios no guardados',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonText: 'Sí, cancelar',
+                confirmButtonText: 'Sí, cerrar',
                 cancelButtonText: 'Continuar editando',
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6'
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280'
             });
             if (!result.isConfirmed) {
                 console.log('❌ Usuario canceló el cierre del modal');
@@ -5099,4 +5149,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
         document.head.appendChild(style);
     }
+    
+    // ============ EVENT DELEGATION GLOBAL PARA BOTÓN AGREGAR CONTACTO ============
+    // Event delegation global como último respaldo (dentro de DOMContentLoaded para acceso al scope)
+    document.addEventListener('click', function(e) {
+        const target = e.target;
+        
+        // Verificar si el click fue en el botón o dentro de él
+        if (target && (target.id === 'add-commercial-contact' || target.closest('#add-commercial-contact'))) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔘 [GLOBAL DELEGATION] Botón Agregar Contacto clickeado');
+            
+            // Llamar a la función
+            if (typeof addCommercialContactFromForm === 'function') {
+                addCommercialContactFromForm();
+            } else {
+                console.error('❌ Función addCommercialContactFromForm no está definida');
+            }
+            
+            return false;
+        }
+    }, true); // Usar capture phase para mayor prioridad
 });
+
