@@ -5086,38 +5086,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Cerrar modal de edición
-    function closeOTEditModal() {
+    async function closeOTEditModal(skipConfirmation = false) {
         const modal = document.getElementById('ot-edit-modal');
-        if (modal) {
-            modal.style.display = 'none';
-            document.getElementById('ot-edit-form').reset();
+        if (!modal) return;
+        
+        // Mostrar confirmación solo si no se solicita omitirla
+        if (!skipConfirmation) {
+            const result = await Swal.fire({
+                title: '¿Cancelar edición de OT?',
+                text: 'Se perderán los cambios no guardados',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sí, cerrar',
+                cancelButtonText: 'Continuar editando',
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280'
+            });
+            
+            if (!result.isConfirmed) {
+                return; // Usuario decidió continuar editando
+            }
         }
+        
+        // Cerrar modal y resetear formulario
+        modal.style.display = 'none';
+        const form = document.getElementById('ot-edit-form');
+        if (form) form.reset();
+        
+        console.log('✅ Modal de edición de OT cerrado');
     }
 
-    // Event listeners para el modal de edición de OT usando event delegation
-    // Botón cerrar modal
-    document.addEventListener('click', function(e) {
+    // Event listeners para el modal de edición de OT usando event delegation con capture phase
+    // Botón cerrar modal (X)
+    document.addEventListener('click', async function(e) {
         if (e.target && e.target.id === 'ot-edit-modal-close') {
             e.preventDefault();
-            closeOTEditModal();
+            e.stopPropagation();
+            await closeOTEditModal(); // Con confirmación
         }
-    });
+    }, true);
 
     // Botón cancelar
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', async function(e) {
         if (e.target && e.target.id === 'ot-edit-cancel') {
             e.preventDefault();
-            closeOTEditModal();
+            e.stopPropagation();
+            await closeOTEditModal(); // Con confirmación
         }
-    });
+    }, true);
 
     // Cerrar al hacer click fuera del modal
-    document.addEventListener('click', function(e) {
+    document.addEventListener('click', async function(e) {
         const modal = document.getElementById('ot-edit-modal');
         if (e.target === modal) {
-            closeOTEditModal();
+            await closeOTEditModal(); // Con confirmación
         }
-    });
+    }, true);
 
     // Submit del formulario de edición usando event delegation
     document.addEventListener('submit', async function(e) {
@@ -5237,7 +5261,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         timerProgressBar: true
                     });
                     
-                    closeOTEditModal();
+                    closeOTEditModal(true); // true = omitir confirmación
                     
                     // Recargar datos para asegurar que se muestren los cambios
                     await window.loadOrdersOfWork();
