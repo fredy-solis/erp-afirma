@@ -4676,6 +4676,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Renderizar
             renderOrdersOfWork();
             
+            // Actualizar indicador de resultados (mostrar total inicial)
+            if (window.updateFilterResultsIndicator) {
+                window.updateFilterResultsIndicator(false); // Sin filtros activos inicialmente
+            }
+            
         } catch (err) {
             console.error('Error loading orders of work:', err);
             if (loading) loading.style.display = 'none';
@@ -5267,24 +5272,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }, true); // Usar capture phase para interceptar antes que otros handlers
 
-    // DESHABILITADO: Filtros manuales reemplazados por DataTables
-    /*
-    const filterOTSearchBtn = document.getElementById('filter-ot-search-btn');
+    // OPCIÓN 3: Filtrado combinado (Filtros manuales + DataTables)
+    // Los filtros manuales reducen el conjunto de datos, DataTables permite búsqueda dentro de los resultados
+    const filterOTCode = document.getElementById('filter-ot-code');
+    const filterOTProject = document.getElementById('filter-ot-project');
+    const filterOTStatus = document.getElementById('filter-ot-status');
     const filterOTClearBtn = document.getElementById('filter-ot-clear-btn');
+    const filterOTResults = document.getElementById('filter-ot-results');
     
-    if (filterOTSearchBtn) {
-        filterOTSearchBtn.addEventListener('click', applyOTFilters);
+    // Auto-aplicar filtros cuando cambian los valores (sin necesidad de botón Buscar)
+    if (filterOTCode) {
+        filterOTCode.addEventListener('input', debounce(applyOTFilters, 500)); // Esperar 500ms después de última tecla
+    }
+    
+    if (filterOTProject) {
+        filterOTProject.addEventListener('change', applyOTFilters);
+    }
+    
+    if (filterOTStatus) {
+        filterOTStatus.addEventListener('change', applyOTFilters);
     }
     
     if (filterOTClearBtn) {
         filterOTClearBtn.addEventListener('click', clearOTFilters);
     }
+    
+    // Función debounce para evitar múltiples llamadas rápidas
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
 
     function applyOTFilters() {
-        const otCode = document.getElementById('filter-ot-code')?.value.toLowerCase() || '';
-        const projectId = document.getElementById('filter-ot-project')?.value || '';
-        const status = document.getElementById('filter-ot-status')?.value || '';
+        const otCode = filterOTCode?.value.toLowerCase().trim() || '';
+        const projectId = filterOTProject?.value || '';
+        const status = filterOTStatus?.value || '';
         
+        // Detectar si hay filtros activos
+        const hasActiveFilters = otCode || projectId || status;
+        
+        // Filtrar los datos originales
         filteredOrdersOfWork = allOrdersOfWork.filter(ot => {
             const matchesCode = !otCode || (ot.ot_code && ot.ot_code.toLowerCase().includes(otCode));
             const matchesProject = !projectId || ot.project_id == projectId;
@@ -5293,22 +5327,64 @@ document.addEventListener('DOMContentLoaded', async () => {
             return matchesCode && matchesProject && matchesStatus;
         });
         
+        // Actualizar indicador de resultados
+        window.updateFilterResultsIndicator(hasActiveFilters);
+        
+        // Re-renderizar con los datos filtrados
         renderOrdersOfWork();
+        
+        if (hasActiveFilters) {
+            console.log(`🔍 Filtros activos: ${filteredOrdersOfWork.length} de ${allOrdersOfWork.length} OTs`);
+        }
     }
 
     function clearOTFilters() {
-        const filterOTCode = document.getElementById('filter-ot-code');
-        const filterOTProject = document.getElementById('filter-ot-project');
-        const filterOTStatus = document.getElementById('filter-ot-status');
-        
         if (filterOTCode) filterOTCode.value = '';
         if (filterOTProject) filterOTProject.value = '';
         if (filterOTStatus) filterOTStatus.value = '';
         
+        // Restaurar todos los datos
         filteredOrdersOfWork = [...allOrdersOfWork];
+        
+        // Limpiar indicador
+        window.updateFilterResultsIndicator(false);
+        
         renderOrdersOfWork();
+        
+        console.log('🔄 Filtros limpiados, mostrando todas las OTs');
     }
-    */
+    
+    // Función global para actualizar indicador de resultados
+    window.updateFilterResultsIndicator = function(hasFilters) {
+        const filterOTResults = document.getElementById('filter-ot-results');
+        if (!filterOTResults) return;
+        
+        // Solo mostrar si hay datos
+        if (allOrdersOfWork.length === 0) {
+            filterOTResults.style.display = 'none';
+            return;
+        }
+        
+        if (hasFilters) {
+            const percentage = allOrdersOfWork.length > 0 
+                ? Math.round((filteredOrdersOfWork.length / allOrdersOfWork.length) * 100)
+                : 0;
+            
+            filterOTResults.innerHTML = `
+                🔍 <span style="font-weight:bold;">${filteredOrdersOfWork.length}</span> 
+                de 
+                <span style="font-weight:bold;">${allOrdersOfWork.length}</span> 
+                OTs 
+                <span style="display:inline-block;padding:2px 6px;background:#0369a1;color:white;border-radius:3px;font-size:11px;margin-left:4px;">${percentage}%</span>
+            `;
+            filterOTResults.style.display = 'inline-block';
+        } else {
+            filterOTResults.innerHTML = `
+                📊 <span style="font-weight:bold;">${allOrdersOfWork.length}</span> OTs en total
+            `;
+            filterOTResults.style.display = 'inline-block';
+        }
+    };
 
     // Agregar estilos para badges si no existen
     if (!document.getElementById('ot-badge-styles')) {

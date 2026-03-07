@@ -32,7 +32,8 @@
         }
         table.dataTable thead th {
             border-bottom: 2px solid #007bff !important;
-            background: #f8fafc;
+            background: #007bff !important;
+            color: #ffffff !important;
             font-weight: 600;
         }
         table.dataTable tbody tr:hover {
@@ -72,6 +73,14 @@
             border-radius: 4px;
             font-size: 12px;
             margin-top: 4px;
+            background: white;
+        }
+        /* Footer con fondo azul para que coincida con header */
+        table.dataTable tfoot th {
+            background: #007bff !important;
+            color: #ffffff !important;
+            font-weight: 600;
+            border-top: 2px solid #0056b3 !important;
         }
     </style>
     
@@ -313,14 +322,13 @@
                     <button type="button" onclick="document.querySelector('[data-view=importar-ots]').click()" class="btn-add">📥 Importar OTs</button>
                 </div>
                 
-                <!-- Nota: Filtros y búsqueda integrados en DataTables -->
-                <!--
-                <div class="filters-container">
-                    <input type="text" id="filter-ot-code" placeholder="🔍 Buscar por Número OT..." class="filter-input">
-                    <select id="filter-ot-project" class="filter-input">
+                <!-- Filtros manuales (complementan a DataTables) -->
+                <div class="filters-container" style="margin-bottom:15px;display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
+                    <input type="text" id="filter-ot-code" placeholder="🔍 Buscar por Número OT..." class="filter-input" style="flex:1;min-width:200px;">
+                    <select id="filter-ot-project" class="filter-input" style="flex:1;min-width:200px;">
                         <option value="">📁 Todos los proyectos</option>
                     </select>
-                    <select id="filter-ot-status" class="filter-input">
+                    <select id="filter-ot-status" class="filter-input" style="flex:1;min-width:180px;">
                         <option value="">📊 Todos los estados</option>
                         <option value="Cancelado sin importe">Cancelado sin importe</option>
                         <option value="Cerrado">Cerrado</option>
@@ -328,10 +336,12 @@
                         <option value="en ejecucion">en ejecucion</option>
                         <option value="Formalizacion">Formalizacion</option>
                     </select>
-                    <button type="button" id="filter-ot-search-btn" class="filter-search-btn">🔍 Buscar</button>
-                    <button type="button" id="filter-ot-clear-btn" class="filter-clear-btn">🔄 Limpiar</button>
+                    <button type="button" id="filter-ot-clear-btn" class="filter-clear-btn" style="flex-shrink:0;">🔄 Limpiar Filtros</button>
+                    <span id="filter-ot-results" style="padding:8px 14px;background:#e0f2fe;color:#0369a1;border-radius:6px;font-size:14px;font-weight:500;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,0.1);"></span>
                 </div>
-                -->
+                <div style="margin-bottom:10px;padding:8px 12px;background:#f0f9ff;border-left:3px solid #0284c7;border-radius:4px;font-size:13px;color:#0c4a6e;">
+                    <strong>🔍 Sistema de filtrado inteligente:</strong> Usa los filtros de arriba para reducir el conjunto de datos, luego usa la búsqueda de la tabla para afinar tu búsqueda.
+                </div>
                 
                 <!-- Grid de OTs -->
                 <div class="employee-grid-container">
