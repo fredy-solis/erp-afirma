@@ -1692,7 +1692,7 @@
                                     
                                     <div style="display:flex;gap:10px;margin-bottom:10px">
                                         <input type="text" id="job-company" placeholder="Empresa *" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
-                                        <input type="text" id="job-contact-name" placeholder="Nombre del contacto *" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
+                                        <input type="text" id="job-contact-name" placeholder="Nombre del contacto *" pattern="[A-Za-zñÑáéíóúÁÉÍÓÚ\s]+" maxlength="50" title="Solo se permiten letras" style="flex:1;padding:12px;border:1px solid #e6eef8;border-radius:8px">
                                     </div>
 
                                     <div style="display:flex;gap:10px;margin-bottom:10px">
@@ -1779,9 +1779,9 @@
                                     <!-- Formulario fijo para agregar contactos -->
                                     <div style="background:#f9fafb;padding:15px;border-radius:8px;margin-bottom:20px;border:1px solid #e5e7eb">
                                         <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap">
-                                            <input type="text" id="new-contact-name" placeholder="Nombre Completo *" style="flex:1;min-width:200px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
+                                            <input type="text" id="new-contact-name" placeholder="Nombre Completo *" pattern="[A-Za-zñÑáéíóúÁÉÍÓÚ\s]+" maxlength="50" title="Solo se permiten letras" style="flex:1;min-width:200px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
                                             <input type="email" id="new-contact-email" placeholder="correo@ejemplo.com *" style="flex:1;min-width:200px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
-                                            <input type="tel" id="new-contact-phone" placeholder="Teléfono" style="flex:0.8;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
+                                            <input type="tel" id="new-contact-phone" placeholder="Teléfono" pattern="[0-9]{10}" maxlength="10" title="Ingresa exactamente 10 dígitos" style="flex:0.8;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
                                             <input type="text" id="new-contact-location" placeholder="Ubicación" style="flex:0.8;min-width:150px;padding:10px;border:1px solid #d1d5db;border-radius:6px">
                                             <a href="#" id="add-commercial-contact" onclick="window.addCommercialContactFromForm();return false;" style="background:#10b981;color:white;border:none;padding:10px 16px;border-radius:6px;cursor:pointer;font-weight:500;white-space:nowrap;font-size:14px;text-decoration:none;display:inline-block;text-align:center;">
                                                 ➕ Agregar

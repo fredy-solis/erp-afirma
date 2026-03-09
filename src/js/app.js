@@ -1701,6 +1701,32 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // ============ END COMMERCIAL CONTACTS MANAGEMENT ============
 
+    // Real-time validation for job opening form inputs
+    const jobContactNameInput = document.getElementById('new-contact-name');
+    const jobContactPhoneInput = document.getElementById('new-contact-phone');
+    const jobCompanyContactNameInput = document.getElementById('job-contact-name');
+
+    if (jobContactNameInput) {
+        jobContactNameInput.addEventListener('input', (e) => {
+            // Replace invalid characters in real-time
+            e.target.value = e.target.value.replace(/[^A-Za-zñÑáéíóúÁÉÍÓÚ\s]/g, '');
+        });
+    }
+
+    if (jobContactPhoneInput) {
+        jobContactPhoneInput.addEventListener('input', (e) => {
+            // Only allow numbers and limit to 10 digits
+            e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+        });
+    }
+
+    if (jobCompanyContactNameInput) {
+        jobCompanyContactNameInput.addEventListener('input', (e) => {
+            // Replace invalid characters in real-time
+            e.target.value = e.target.value.replace(/[^A-Za-zñÑáéíóúÁÉÍÓÚ\s]/g, '');
+        });
+    }
+
     // Tab switching
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -1760,6 +1786,38 @@ document.addEventListener('DOMContentLoaded', async () => {
                 text: 'Empresa, Contacto, Email y Puesto son obligatorios'
             });
             return;
+        }
+
+        // Validar que nombre del contacto solo contenga letras
+        const nameRegex = /^[A-Za-zñÑáéíóúÁÉÍÓÚ\s]+$/;
+        if (!nameRegex.test(contactName)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Nombre de contacto inválido',
+                text: 'El nombre del contacto solo puede contener letras'
+            });
+            return;
+        }
+
+        // Validar contactos comerciales - que nombres solo contengan letras y teléfono sea válido
+        const commercialContacts = getCommercialContactsData();
+        for (const contact of commercialContacts) {
+            if (contact.name && !nameRegex.test(contact.name)) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Nombre de contacto comercial inválido',
+                    text: 'El nombre solo puede contener letras: ' + contact.name
+                });
+                return;
+            }
+            if (contact.phone && !/^[0-9]{10}$/.test(contact.phone)) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Teléfono de contacto inválido',
+                    text: 'El teléfono debe contener exactamente 10 dígitos. Contacto: ' + contact.name
+                });
+                return;
+            }
         }
 
         try {
