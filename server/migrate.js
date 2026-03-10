@@ -53,7 +53,8 @@ async function runMigrations() {
       '038_add_salary_expectation_to_candidates.sql',
       '039_rename_role_to_role_name.sql',
       '040_grant_all_permissions.sql',
-      '041_add_deleted_status_to_candidates.sql'
+      '041_add_deleted_status_to_candidates.sql',
+      '042_normalize_ot_status_values.sql'
     ];
 
     for (const migration of migrations) {

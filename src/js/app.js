@@ -5392,6 +5392,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
     }
 
+    // Función para normalizar texto (eliminar acentos y convertir a minúsculas)
+    function normalizeText(text) {
+        if (!text) return '';
+        return text
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Eliminar diacríticos (acentos)
+            .trim();
+    }
+
     function applyOTFilters() {
         const otCode = filterOTCode?.value.toLowerCase().trim() || '';
         const projectId = filterOTProject?.value || '';
@@ -5400,11 +5410,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Detectar si hay filtros activos
         const hasActiveFilters = otCode || projectId || status;
         
+        // Normalizar el status del filtro para comparación flexible
+        const normalizedFilterStatus = normalizeText(status);
+        
         // Filtrar los datos originales
         filteredOrdersOfWork = allOrdersOfWork.filter(ot => {
             const matchesCode = !otCode || (ot.ot_code && ot.ot_code.toLowerCase().includes(otCode));
             const matchesProject = !projectId || ot.project_id == projectId;
-            const matchesStatus = !status || ot.status === status;
+            // Comparar estados normalizados (sin acentos, case-insensitive)
+            const matchesStatus = !status || normalizeText(ot.status) === normalizedFilterStatus;
             
             return matchesCode && matchesProject && matchesStatus;
         });
