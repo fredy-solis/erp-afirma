@@ -131,6 +131,35 @@ const uploadJobFile = multer({
   }
 });
 
+// Configure multer for employee documents (CLABE, contracts, etc.)
+const employeeDocumentsStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '..', 'public', 'uploads', 'employee-documents');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'emp-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadEmployeeDoc = multer({
+  storage: employeeDocumentsStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', '.txt'];
+    if (allowedExts.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Solo se permiten imágenes, PDF, Word y archivos de texto'));
+    }
+  }
+});
+
 // Helpers: resolve or create entity/position by name
 async function findOrCreateEntity(name) {
   if (!name) return null;
@@ -1885,6 +1914,111 @@ app.post('/api/employees-v2/:id/banking', async (req, res) => {
   } catch (err) {
     console.error('Error saving banking info', err);
     res.status(500).json({ error: 'Error saving banking info' });
+  }
+});
+
+// === DOCUMENTOS DEL EMPLEADO ===
+
+// Upload employee documents (CLABE statement, contract, etc.)
+app.post('/api/employees-v2/:id/documents', uploadEmployeeDoc.single('file'), async (req, res) => {
+  try {
+    const employeeId = req.params.id;
+    const documentType = req.body.document_type;
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    if (!documentType) {
+      return res.status(400).json({ error: 'document_type is required' });
+    }
+
+    // Create the relative file path for storage
+    const filePath = `/uploads/employee-documents/${req.file.filename}`;
+
+    // Save document record to database
+    const result = await db.query(
+      `INSERT INTO employee_documents (employee_id, document_type, document_file_path, notes)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [employeeId, documentType, filePath, req.body.notes || null]
+    );
+
+    console.log(`✅ Employee document uploaded: ${documentType} for employee ${employeeId}`);
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('Error uploading employee document', err);
+    res.status(500).json({ error: 'Error uploading document: ' + err.message });
+  }
+});
+
+// Get employee documents
+app.get('/api/employees-v2/:id/documents', async (req, res) => {
+  try {
+    const employeeId = req.params.id;
+    const result = await db.query(
+      `SELECT id, employee_id, document_type, document_file_path, notes, created_at
+       FROM employee_documents
+       WHERE employee_id = $1
+       ORDER BY created_at DESC`,
+      [employeeId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching employee documents', err);
+    res.status(500).json({ error: 'Error fetching documents' });
+  }
+});
+
+// Get specific document type for employee
+app.get('/api/employees-v2/:id/documents/:documentType', async (req, res) => {
+  try {
+    const { id: employeeId, documentType } = req.params;
+    const result = await db.query(
+      `SELECT id, employee_id, document_type, document_file_path, notes, created_at
+       FROM employee_documents
+       WHERE employee_id = $1 AND document_type = $2
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [employeeId, documentType]
+    );
+    res.json(result.rows[0] || null);
+  } catch (err) {
+    console.error('Error fetching employee document', err);
+    res.status(500).json({ error: 'Error fetching document' });
+  }
+});
+
+// Delete employee document
+app.delete('/api/employees-v2/:id/documents/:docId', async (req, res) => {
+  try {
+    const { id: employeeId, docId } = req.params;
+    
+    // Get file path to delete from filesystem
+    const docResult = await db.query(
+      'SELECT document_file_path FROM employee_documents WHERE id = $1 AND employee_id = $2',
+      [docId, employeeId]
+    );
+
+    if (docResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    const filePath = docResult.rows[0].document_file_path;
+
+    // Delete from database
+    await db.query('DELETE FROM employee_documents WHERE id = $1', [docId]);
+
+    // Delete file from filesystem
+    const fullPath = path.join(__dirname, '..', 'public', filePath);
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+      console.log(`✅ Deleted file: ${fullPath}`);
+    }
+
+    res.json({ message: 'Document deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting employee document', err);
+    res.status(500).json({ error: 'Error deleting document: ' + err.message });
   }
 });
 

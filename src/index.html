@@ -2092,7 +2092,7 @@
                                         </div>
                                     </div>
                                     <div style="margin-top:10px">
-                                        <label for="employee-clabe-document" class="field-label">Documento CLABE</label>
+                                        <label for="employee-clabe-document" class="field-label">Caratula de Edo de Cuenta</label>
                                         <input type="file" id="employee-clabe-document" accept=".pdf,.jpg,.jpeg,.png">
                                     </div>
                                 </div>
@@ -2160,6 +2160,44 @@
                                     <div style="margin-top:10px">
                                         <label for="employee-contract-document" class="field-label">Documento del contrato</label>
                                         <input type="file" id="employee-contract-document" accept=".pdf,.doc,.docx">
+                                    </div>
+                                </div>
+
+                                <!-- Documentos del Empleado -->
+                                <div class="form-section">
+                                    <h4>📄 Documentos</h4>
+                                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;margin-top:15px">
+                                        <!-- CLABE Statement -->
+                                        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:15px;background:#f9fafb">
+                                            <div style="display:flex;align-items:center;margin-bottom:10px">
+                                                <span style="font-size:20px;margin-right:10px">💳</span>
+                                                <div>
+                                                    <div style="font-weight:600;color:#1f2937">Caratula de Edo de Cuenta</div>
+                                                    <div style="font-size:12px;color:#6b7280">Estado de cuenta bancario</div>
+                                                </div>
+                                            </div>
+                                            <div id="employee-clabe-document-display" style="margin-top:10px">
+                                                <div style="color:#9ca3af;font-size:13px;padding:10px;background:#e5e7eb;border-radius:4px;text-align:center">
+                                                    📭 Sin documento
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Contract Document -->
+                                        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:15px;background:#f9fafb">
+                                            <div style="display:flex;align-items:center;margin-bottom:10px">
+                                                <span style="font-size:20px;margin-right:10px">📋</span>
+                                                <div>
+                                                    <div style="font-weight:600;color:#1f2937">Documento del Contrato</div>
+                                                    <div style="font-size:12px;color:#6b7280">Contrato de trabajo</div>
+                                                </div>
+                                            </div>
+                                            <div id="employee-contract-document-display" style="margin-top:10px">
+                                                <div style="color:#9ca3af;font-size:13px;padding:10px;background:#e5e7eb;border-radius:4px;text-align:center">
+                                                    📭 Sin documento
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 

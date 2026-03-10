@@ -2354,6 +2354,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     console.log('📊 Loading HR data for employee:', employeeId);
                     loadEmployeeContracts(employeeId);
                     loadEmployeeBanking(employeeId);
+                    loadEmployeeDocuments(employeeId);
                 }
             }
             
@@ -3071,6 +3072,58 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             }
 
+            // Upload employee documents (CLABE statement and contract document)
+            const clabeDocFile = document.getElementById('employee-clabe-document')?.files[0];
+            const contractDocFile = document.getElementById('employee-contract-document')?.files[0];
+
+            if (clabeDocFile) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', clabeDocFile);
+                    formData.append('document_type', 'CLABE Statement');
+                    formData.append('notes', 'Caratula de Estado de Cuenta');
+
+                    const url = window.getApiUrl ? window.getApiUrl(`/api/employees-v2/${employeeId}/documents`) : `/api/employees-v2/${employeeId}/documents`;
+                    const docRes = await fetch(url, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (!docRes.ok) throw new Error('Error al cargar documento CLABE');
+                    console.log('✅ CLABE document uploaded for employee:', employeeId);
+                } catch (docError) {
+                    console.error('Error uploading CLABE document:', docError);
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Error al cargar Caratula',
+                        text: 'El empleado se guardó pero hubo problema al cargar el documento CLABE'
+                    });
+                }
+            }
+
+            if (contractDocFile) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', contractDocFile);
+                    formData.append('document_type', 'Contract');
+                    formData.append('notes', 'Documento del Contrato');
+
+                    const url = window.getApiUrl ? window.getApiUrl(`/api/employees-v2/${employeeId}/documents`) : `/api/employees-v2/${employeeId}/documents`;
+                    const docRes = await fetch(url, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (!docRes.ok) throw new Error('Error al cargar documento de contrato');
+                    console.log('✅ Contract document uploaded for employee:', employeeId);
+                } catch (docError) {
+                    console.error('Error uploading contract document:', docError);
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Error al cargar Contrato',
+                        text: 'El empleado se guardó pero hubo problema al cargar el documento del contrato'
+                    });
+                }
+            }
+
         } catch (err) {
             // No mostrar alerta de error aquí porque employees.js ya lo maneja
             console.error('❌ Error guardando empleado:', err);
@@ -3392,6 +3445,98 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
+    // Load employee documents (CLABE statement and contract)
+    async function loadEmployeeDocuments(employeeId) {
+        console.log('📄 Cargando documentos del empleado:', employeeId);
+        try {
+            const url = window.getApiUrl ? window.getApiUrl(`/api/employees-v2/${employeeId}/documents`) : `/api/employees-v2/${employeeId}/documents`;
+            const response = await fetch(url);
+            if (!response.ok) {
+                console.warn('⚠️ No se pudieron cargar los documentos');
+                return;
+            }
+            const documents = await response.json();
+            
+            // Find CLABE and Contract documents
+            const clabeDoc = documents.find(d => d.document_type === 'CLABE Statement');
+            const contractDoc = documents.find(d => d.document_type === 'Contract');
+            
+            // Display CLABE document
+            const clabeDisplay = document.getElementById('employee-clabe-document-display');
+            if (clabeDisplay) {
+                if (clabeDoc && clabeDoc.document_file_path) {
+                    const apiBaseUrl = window.getApiUrl ? window.getApiUrl('') : 'http://localhost:3000';
+                    const fileUrl = apiBaseUrl + clabeDoc.document_file_path;
+                    const fileName = clabeDoc.document_file_path.split('/').pop() || 'documento';
+                    clabeDisplay.innerHTML = `
+                        <div style="display:flex;gap:10px;align-items:center;padding:10px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:4px">
+                            <span style="font-size:18px">✅</span>
+                            <div style="flex:1">
+                                <div style="font-size:13px;color:#065f46;font-weight:600">Documento cargado</div>
+                                <div style="font-size:11px;color:#059669;margin-top:2px">Fecha: ${new Date(clabeDoc.created_at).toLocaleDateString('es-MX')}</div>
+                            </div>
+                            <button type="button" onclick="window.open('${fileUrl}', '_blank')" style="background:#10b981;color:white;border:none;padding:8px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">
+                                👁️ Ver
+                            </button>
+                            <button type="button" onclick="window.downloadFile('${fileUrl}', '${fileName}')" style="background:#065f46;color:white;border:none;padding:8px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">
+                                ⬇️ Descargar
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    clabeDisplay.innerHTML = `
+                        <div style="color:#9ca3af;font-size:13px;padding:10px;background:#e5e7eb;border-radius:4px;text-align:center">
+                            📭 Sin documento
+                        </div>
+                    `;
+                }
+            }
+            
+            // Display Contract document
+            const contractDisplay = document.getElementById('employee-contract-document-display');
+            if (contractDisplay) {
+                if (contractDoc && contractDoc.document_file_path) {
+                    const apiBaseUrl = window.getApiUrl ? window.getApiUrl('') : 'http://localhost:3000';
+                    const fileUrl = apiBaseUrl + contractDoc.document_file_path;
+                    const fileName = contractDoc.document_file_path.split('/').pop() || 'documento';
+                    contractDisplay.innerHTML = `
+                        <div style="display:flex;gap:10px;align-items:center;padding:10px;background:#d1fae5;border:1px solid #6ee7b7;border-radius:4px">
+                            <span style="font-size:18px">✅</span>
+                            <div style="flex:1">
+                                <div style="font-size:13px;color:#065f46;font-weight:600">Documento cargado</div>
+                                <div style="font-size:11px;color:#059669;margin-top:2px">Fecha: ${new Date(contractDoc.created_at).toLocaleDateString('es-MX')}</div>
+                            </div>
+                            <button type="button" onclick="window.open('${fileUrl}', '_blank')" style="background:#10b981;color:white;border:none;padding:8px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">
+                                👁️ Ver
+                            </button>
+                            <button type="button" onclick="window.downloadFile('${fileUrl}', '${fileName}')" style="background:#065f46;color:white;border:none;padding:8px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600">
+                                ⬇️ Descargar
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    contractDisplay.innerHTML = `
+                        <div style="color:#9ca3af;font-size:13px;padding:10px;background:#e5e7eb;border-radius:4px;text-align:center">
+                            📭 Sin documento
+                        </div>
+                    `;
+                }
+            }
+        } catch (error) {
+            console.error('❌ Error cargando documentos:', error);
+        }
+    }
+
+    // Helper function to download files
+    window.downloadFile = function(url, fileName) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
     // delegate edit/delete/view clicks for employees (supports table or legacy list)
     const employeeClicksHost = document.getElementById('employee-table-body') || document.getElementById('employee-list');
     if (employeeClicksHost) {
@@ -3569,6 +3714,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.switchTab = switchTab;
     window.loadEmployeeContracts = loadEmployeeContracts;
     window.loadEmployeeBanking = loadEmployeeBanking;
+    window.loadEmployeeDocuments = loadEmployeeDocuments;
     window.openModal = openModal;
     window.closeCandidateModal = closeCandidateModal;
     
