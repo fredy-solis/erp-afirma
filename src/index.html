@@ -260,12 +260,80 @@
                         <!-- Vista para importar OTs desde Excel -->
                         <section id="importar-ots" class="card view" style="display:none;max-width:1000px;margin:0 auto;">
                             <h2>Importar OTs desde Excel</h2>
+                            
                             <div style="margin-bottom:16px;">
                                 <button type="button" id="ot-template-btn" class="btn-add">📥 Descargar plantilla ejemplo</button>
                             </div>
-                            <div style="margin-bottom:16px;">
-                                <input type="file" id="ot-import-file-standalone" accept=".xlsx,.xls,.csv">
+                            
+                            <!-- Área de Importación con estilo mejorado -->
+                            <div id="import-ots-area" style="display:block;background:rgb(240, 244, 255);border:2px dashed rgb(0, 102, 255);border-radius:8px;padding:20px;text-align:center;margin-bottom:20px;">
+                                <input type="file" id="ot-import-file-standalone" accept=".xlsx,.xls,.csv" style="display:none">
+                                <div style="color:#0066ff;cursor:pointer;font-weight:600" id="ot-import-click-area">
+                                    Haz clic para seleccionar un archivo Excel o arrástralo aquí
+                                </div>
+                                <div style="font-size:12px;color:#6b7280;margin-top:8px">Soporta: .xlsx, .xls, .csv</div>
+                                
+                                <!-- Columnas Obligatorias -->
+                                <div style="margin-top:16px;padding:12px;background:#fff;border-radius:6px;text-align:left;">
+                                    <div style="font-size:13px;font-weight:600;color:#dc2626;margin-bottom:8px;">📌 Columnas OBLIGATORIAS:</div>
+                                    <div style="font-size:12px;color:#374151;line-height:1.6;">
+                                        • <strong>Número OT</strong> - Identificador único de la orden de trabajo<br>
+                                        • <strong>Nombre Proyecto</strong> - Nombre del proyecto al que pertenece la OT
+                                    </div>
+                                </div>
+                                
+                                <!-- Columnas Opcionales (Collapsible) -->
+                                <details id="ot-optional-columns-details" open style="margin-top:12px;padding:12px;background:#f9fafb;border-radius:6px;text-align:left;cursor:pointer;">
+                                    <summary style="font-size:13px;font-weight:600;color:#059669;margin-bottom:8px;list-style:none;user-select:none;" onclick="this.querySelector('.arrow').textContent = this.parentElement.open ? '▶' : '▼'">
+                                        <span style="cursor:pointer;"><span class="arrow">▼</span> ✅ Columnas OPCIONALES (se importarán si existen) - Click para expandir/contraer</span>
+                                    </summary>
+                                    <div style="font-size:11px;color:#4b5563;line-height:1.8;columns:2;column-gap:20px;margin-top:8px;">
+                                        • Folio Principal Santec<br>
+                                        • Folio Santec<br>
+                                        • Estado<br>
+                                        • Descripción<br>
+                                        • Tipo Servicio<br>
+                                        • Tecnología<br>
+                                        • Aplicativo<br>
+                                        • Fecha Inicio Santander<br>
+                                        • Fecha Fin Santander<br>
+                                        • Fecha Inicio Proveedor<br>
+                                        • Fecha Fin Proveedor<br>
+                                        • Fecha Entrega Proveedor<br>
+                                        • Fecha Inicio Real<br>
+                                        • Fecha Fin Real<br>
+                                        • Fecha Creación<br>
+                                        • Fecha VoBo Front de Negocio<br>
+                                        • Hras. Acordadas<br>
+                                        • Horas<br>
+                                        • Días Desvío Entrega<br>
+                                        • Líder Delivery<br>
+                                        • Responsable de Proyecto<br>
+                                        • CBT Responsable<br>
+                                        • Proveedor<br>
+                                        • Monto del Servicio (Proveedor)<br>
+                                        • Monto del Servicio (Proveedor) con IVA<br>
+                                        • Costo por Hora del Servicio<br>
+                                        • % Ejecución<br>
+                                        • Semáforo de Esfuerzo<br>
+                                        • Semáforo de Plazo<br>
+                                        • Autorización RDP<br>
+                                        • Ambiente<br>
+                                        • FT's<br>
+                                        • Estimación E-lab + Pruebas<br>
+                                        • Clase de Coste<br>
+                                        • Folio PDS<br>
+                                        • Programa<br>
+                                        • Front de Negocio<br>
+                                        • VoBo Front de Negocio
+                                    </div>
+                                </details>
+                                
+                                <div style="font-size:11px;color:#6b7280;margin-top:12px;font-style:italic;">
+                                    💡 Todas las fechas pueden estar en formato DD/MM/YYYY o como número serial de Excel
+                                </div>
                             </div>
+                            
                             <div style="margin-bottom:16px;">
                                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                                     <input type="checkbox" id="ot-create-projects-checkbox" checked>
@@ -297,8 +365,8 @@
                                         <thead>
                                             <tr>
                                                 <th style="min-width:120px">Número OT</th>
-                                                <th style="min-width:150px">Nombre Proyecto</th>
-                                                <th style="min-width:250px">Proyecto (Seleccionar o Crear)</th>
+                                                <th style="min-width:200px">Descripción</th>
+                                                <th style="min-width:300px">Nombre Proyecto / Proyecto (Seleccionar o Crear)</th>
                                                 <th style="min-width:100px">Estado</th>
                                                 <th style="min-width:150px">Tipo Servicio</th>
                                                 <th style="min-width:80px">Acción</th>
@@ -2393,9 +2461,26 @@
                             </select>
                         </div>
                         <div>
-                            <label class="field-label">Proyecto</label>
-                            <input type="text" id="ot-edit-project" placeholder="Nombre del proyecto">
+                            <label class="field-label">Proyecto Asociado 🔒</label>
+                            <input type="text" id="ot-edit-project-display" placeholder="Nombre del proyecto" 
+                                   readonly style="background:#f3f4f6;cursor:not-allowed;" 
+                                   title="Este campo no es editable. Para cambiar el proyecto, usa el selector de abajo">
                         </div>
+                        <div>
+                            <label class="field-label">Célula 🔒</label>
+                            <input type="text" id="ot-edit-celula-display" placeholder="Célula del proyecto" 
+                                   readonly style="background:#f3f4f6;cursor:not-allowed;"
+                                   title="La célula se obtiene del proyecto asociado">
+                        </div>
+                    </div>
+                    <div style="margin-top:12px;padding:12px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:4px;">
+                        <label class="field-label" style="color:#92400e;">🔄 Cambiar Relación Proyecto-OT</label>
+                        <select id="ot-edit-project-relation" style="width:100%;padding:10px;border:1px solid #fbbf24;border-radius:6px;background:white;">
+                            <option value="">Seleccionar proyecto para vincular...</option>
+                        </select>
+                        <p style="font-size:12px;color:#78350f;margin:8px 0 0 0;">
+                            ⚠️ Cambiar el proyecto actualizará la relación. Los datos del proyecto (nombre, responsable, CBT, célula) se actualizarán automáticamente.
+                        </p>
                     </div>
                     <div style="margin-top:12px;">
                         <label class="field-label">Descripción</label>
@@ -2485,21 +2570,32 @@
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
                         <div>
                             <label class="field-label">Líder Delivery</label>
-                            <input type="text" id="ot-edit-lider-delivery" placeholder="Nombre del líder">
-                        </div>
-                        <div>
-                            <label class="field-label">Responsable Proyecto</label>
-                            <input type="text" id="ot-edit-responsable-proyecto" placeholder="Responsable">
-                        </div>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                        <div>
-                            <label class="field-label">CBT Responsable</label>
-                            <input type="text" id="ot-edit-cbt-responsable" placeholder="CBT">
+                            <input type="text" id="ot-edit-lider-delivery" placeholder="Nombre del líder"
+                                   title="Este campo pertenece a la OT y es editable">
                         </div>
                         <div>
                             <label class="field-label">Proveedor</label>
-                            <input type="text" id="ot-edit-proveedor" placeholder="Proveedor">
+                            <input type="text" id="ot-edit-proveedor" placeholder="Proveedor"
+                                   title="Este campo pertenece a la OT y es editable">
+                        </div>
+                    </div>
+                    <div style="padding:12px;background:#f0f9ff;border-left:3px solid #0284c7;border-radius:4px;margin-bottom:12px;">
+                        <p style="font-size:13px;color:#075985;margin:0 0 8px 0;font-weight:500;">
+                            🔒 Los siguientes campos provienen del <strong>Proyecto</strong> asociado y no pueden editarse aquí:
+                        </p>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                            <div>
+                                <label class="field-label" style="color:#0c4a6e;">Responsable Proyecto 🔒</label>
+                                <input type="text" id="ot-edit-responsable-proyecto" placeholder="Responsable" 
+                                       readonly style="background:#f3f4f6;cursor:not-allowed;color:#6b7280;"
+                                       title="Este campo viene del proyecto y no es editable">
+                            </div>
+                            <div>
+                                <label class="field-label" style="color:#0c4a6e;">CBT Responsable 🔒</label>
+                                <input type="text" id="ot-edit-cbt-responsable" placeholder="CBT" 
+                                       readonly style="background:#f3f4f6;cursor:not-allowed;color:#6b7280;"
+                                       title="Este campo viene del proyecto y no es editable">
+                            </div>
                         </div>
                     </div>
                 </div>

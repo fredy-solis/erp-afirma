@@ -207,35 +207,118 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }
         
+        // Hacer el área clickeable para seleccionar archivo
+        const otImportClickArea = document.getElementById('ot-import-click-area');
+        const otImportArea = document.getElementById('import-ots-area');
+        
+        if (otImportClickArea && otImportFileStandalone) {
+            otImportClickArea.addEventListener('click', function() {
+                otImportFileStandalone.click();
+            });
+        }
+        
+        // Soporte para drag & drop
+        if (otImportArea && otImportFileStandalone) {
+            otImportArea.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                otImportArea.style.borderColor = '#0052cc';
+                otImportArea.style.backgroundColor = 'rgb(230, 240, 255)';
+            });
+            
+            otImportArea.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                otImportArea.style.borderColor = 'rgb(0, 102, 255)';
+                otImportArea.style.backgroundColor = 'rgb(240, 244, 255)';
+            });
+            
+            otImportArea.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                otImportArea.style.borderColor = 'rgb(0, 102, 255)';
+                otImportArea.style.backgroundColor = 'rgb(240, 244, 255)';
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    otImportFileStandalone.files = files;
+                    // Disparar el evento change manualmente
+                    const event = new Event('change', { bubbles: true });
+                    otImportFileStandalone.dispatchEvent(event);
+                }
+            });
+        }
+        
         otImportFileStandalone.addEventListener('change', async function(e) {
             const file = e.target.files[0];
             if (!file) return;
             
-            // Cargar proyectos y OTs existentes
-            await Promise.all([loadAvailableProjects(), loadExistingOTs()]);
-            
-            // Cargar XLSX si no existe
-            if (!window.XLSX) {
-                await new Promise((resolve, reject) => {
-                    const script = document.createElement('script');
-                    script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
-                    script.onload = resolve;
-                    script.onerror = reject;
-                    document.head.appendChild(script);
-                });
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(evt) {
-                const data = evt.target.result;
-                const workbook = window.XLSX.read(data, { type: 'binary' });
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rows = window.XLSX.utils.sheet_to_json(sheet, { header: 1 });
-                
-                if (rows.length < 2) {
-                    Swal.fire({ icon: 'error', title: 'El archivo está vacío' });
-                    return;
+            // Mostrar loading
+            Swal.fire({
+                title: 'Procesando archivo...',
+                html: 'Por favor espera mientras se cargan las OTs',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
                 }
+            });
+            
+            try {
+                // Timeout de 30 segundos
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('TIMEOUT')), 30000)
+                );
+                
+                const processPromise = (async () => {
+                    // Cargar proyectos y OTs existentes
+                    await Promise.all([loadAvailableProjects(), loadExistingOTs()]);
+                    
+                    // Cargar XLSX si no existe
+                    if (!window.XLSX) {
+                        await new Promise((resolve, reject) => {
+                            const script = document.createElement('script');
+                            script.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+                            script.onload = resolve;
+                            script.onerror = reject;
+                            document.head.appendChild(script);
+                        });
+                    }
+                    
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onerror = () => reject(new Error('Error al leer el archivo'));
+                        reader.onload = function(evt) {
+                            try {
+                                const data = evt.target.result;
+                                const workbook = window.XLSX.read(data, { type: 'binary' });
+                                
+                                if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                                    reject(new Error('El archivo no contiene hojas válidas'));
+                                    return;
+                                }
+                                
+                                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                                const rows = window.XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                                
+                                if (!rows || rows.length < 2) {
+                                    reject(new Error('El archivo está vacío o no contiene datos'));
+                                    return;
+                                }
+                                
+                                resolve(rows);
+                            } catch (err) {
+                                reject(new Error('El archivo está dañado o tiene un formato inválido'));
+                            }
+                        };
+                        reader.readAsBinaryString(file);
+                    });
+                })();
+                
+                const rows = await Promise.race([processPromise, timeoutPromise]);
+                
+                // Cerrar loading
+                Swal.close();
                 
                 const header = rows[0];
                 
@@ -472,9 +555,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Filtrar solo las que se van a crear/actualizar para la tabla de previsualización
                 otImportPreviewRows = otImportPreviewRows.filter(row => row.action !== 'skip');
                 
+                // Cerrar el dropdown de columnas opcionales
+                const optionalColumnsDetails = document.getElementById('ot-optional-columns-details');
+                if (optionalColumnsDetails) {
+                    optionalColumnsDetails.open = false;
+                }
+                
                 renderOTImportPreview();
-            };
-            reader.readAsBinaryString(file);
+                
+            } catch (error) {
+                Swal.close();
+                
+                if (error.message === 'TIMEOUT') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Tiempo de espera excedido',
+                        html: 'El archivo es demasiado grande o la carga está tomando mucho tiempo.<br><br><strong>Sugerencias:</strong><br>• Reduce el número de filas en el archivo<br>• Verifica que el archivo no esté dañado<br>• Intenta dividir la importación en lotes más pequeños',
+                        confirmButtonText: 'Entendido'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error al procesar el archivo',
+                        html: `<strong>Detalle:</strong> ${error.message}<br><br><strong>Posibles causas:</strong><br>• El archivo está dañado o corrupto<br>• El formato no es válido (debe ser .xlsx, .xls o .csv)<br>• El archivo no contiene las columnas requeridas`,
+                        confirmButtonText: 'Entendido'
+                    });
+                }
+                
+                // Limpiar el input para permitir reintento
+                if (otImportFileStandalone) otImportFileStandalone.value = '';
+            }
         });
     }
 
@@ -494,7 +604,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         otImportSaveBtn.style.display = 'inline-block';
         otImportCancelBtn.style.display = 'inline-block';
         
-        otImportPreviewRows.forEach((row, idx) => {
+        // Límite de previsualización: mostrar solo las primeras 200 filas
+        const PREVIEW_LIMIT = 200;
+        const totalRows = otImportPreviewRows.length;
+        const rowsToShow = otImportPreviewRows.slice(0, PREVIEW_LIMIT);
+        
+        // Mostrar mensaje si hay más registros
+        if (totalRows > PREVIEW_LIMIT) {
+            const messageRow = document.createElement('tr');
+            messageRow.innerHTML = `
+                <td colspan="7" style="padding:16px;text-align:center;background:#fff3cd;border:2px solid #ffc107;font-weight:600;color:#856404;">
+                    ℹ️ Mostrando ${PREVIEW_LIMIT} de ${totalRows} OTs para previsualización.<br>
+                    <span style="font-weight:normal;font-size:13px;">Todas las ${totalRows} OTs se importarán al guardar.</span>
+                </td>
+            `;
+            tbody.appendChild(messageRow);
+        }
+        
+        rowsToShow.forEach((row, idx) => {
             const tr = document.createElement('tr');
             
             // Determinar si debe crear nuevo proyecto o usar existente
@@ -551,9 +678,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </select>
             `;
             
-            // Combinar checkbox y dropdown en la misma celda
+            // Input editable para Nombre Proyecto
+            const projectNameInput = `
+                <input type="text" 
+                    value="${row.nombre_proyecto || ''}"
+                    onchange="window.updateProjectName(${idx}, this.value)"
+                    placeholder="Nombre del proyecto"
+                    style="width:100%;padding:6px;border:1px solid #28a745;border-radius:4px;font-weight:600;margin-bottom:8px;">
+            `;
+            
+            // Combinar nombre de proyecto y controles en la misma celda
             const projectControlCell = `
                 <div style="padding:4px;">
+                    ${projectNameInput}
                     ${createCheckbox}
                     ${projectDropdown}
                     ${noProjectAction ? '<small style="color:#dc3545;font-weight:bold;margin-top:4px;display:block;">⚠️ Seleccione una opción</small>' : ''}
@@ -572,6 +709,24 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </select>
             `;
             
+            // Input editable para Número OT
+            const otCodeInput = `
+                <input type="text" 
+                    value="${row.ot_code || ''}"
+                    onchange="window.updateOTImportCell(${idx}, 'ot_code', this.value)"
+                    placeholder="Número OT"
+                    style="width:100%;padding:6px;border:1px solid #0066ff;border-radius:4px;font-weight:600;">
+            `;
+            
+            // Input editable para Descripción
+            const descriptionInput = `
+                <input type="text" 
+                    value="${row.description || ''}"
+                    onchange="window.updateOTImportCell(${idx}, 'description', this.value)"
+                    placeholder="Descripción de la OT"
+                    style="width:100%;padding:6px;border:1px solid #ccc;border-radius:4px;">
+            `;
+            
             // Input editable para Tipo de Servicio
             const tipoServicioInput = `
                 <input type="text" 
@@ -582,8 +737,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             `;
             
             tr.innerHTML = `
-                <td style="padding:8px;"><strong>${row.ot_code || ''}</strong></td>
-                <td style="padding:8px;">${row.nombre_proyecto || '-'}</td>
+                <td style="padding:8px;">${otCodeInput}</td>
+                <td style="padding:8px;">${descriptionInput}</td>
                 <td style="padding:8px;">${projectControlCell}</td>
                 <td style="padding:8px;">${estadoSelect}</td>
                 <td style="padding:8px;">${tipoServicioInput}</td>
@@ -605,6 +760,32 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
+    window.updateProjectName = function(idx, newName) {
+        if (otImportPreviewRows[idx]) {
+            // Actualizar el nombre del proyecto
+            otImportPreviewRows[idx].nombre_proyecto = newName;
+            
+            // Verificar si el nuevo nombre corresponde a un proyecto existente
+            const existingProject = findProjectByName(newName);
+            
+            if (existingProject) {
+                // Si existe, seleccionarlo automáticamente y desmarcar "crear nuevo"
+                otImportPreviewRows[idx].selectedProjectId = existingProject.id;
+                otImportPreviewRows[idx].createNewProject = false;
+                otImportPreviewRows[idx].project_id = existingProject.id;
+                otImportPreviewRows[idx].hasError = false;
+            } else {
+                // Si no existe, limpiar selección y marcar para crear nuevo
+                otImportPreviewRows[idx].selectedProjectId = null;
+                otImportPreviewRows[idx].createNewProject = true;
+                otImportPreviewRows[idx].project_id = null;
+                otImportPreviewRows[idx].hasError = false;
+            }
+            
+            renderOTImportPreview();
+        }
+    };
+
     window.selectExistingProject = function(idx, projectId) {
         if (otImportPreviewRows[idx]) {
             otImportPreviewRows[idx].selectedProjectId = projectId ? parseInt(projectId) : null;
@@ -622,6 +803,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Si activa "crear nuevo", limpiar proyecto seleccionado
             if (checked) {
                 otImportPreviewRows[idx].selectedProjectId = null;
+            }
+            // Si desmarca un individual, desmarcar también el checkbox global
+            if (!checked && otCreateProjectsCheckbox) {
+                otCreateProjectsCheckbox.checked = false;
             }
             renderOTImportPreview();
         }
@@ -5074,7 +5259,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('ot-edit-id').value = ot.id || '';
             document.getElementById('ot-edit-code').value = ot.ot_code || '';
             document.getElementById('ot-edit-status').value = ot.status || 'en ejecucion';
-            document.getElementById('ot-edit-project').value = ot.nombre_proyecto || ot.project_name || '';
+            
+            // Campos de solo lectura (vienen del proyecto)
+            document.getElementById('ot-edit-project-display').value = ot.nombre_proyecto || ot.project_name || 'Sin proyecto asignado';
+            document.getElementById('ot-edit-celula-display').value = ot.celula_name || 'Sin célula';
+            
+            // Cargar proyectos disponibles en el selector
+            await loadProjectsForOTRelation(ot.project_id);
+            
             document.getElementById('ot-edit-description').value = ot.description || '';
             
             // Folios
@@ -5095,10 +5287,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('ot-edit-fecha-fin-real').value = formatDateForInput(ot.fecha_fin_real);
             document.getElementById('ot-edit-fecha-creacion').value = formatDateForInput(ot.fecha_creacion);
             
-            // Responsables
+            // Responsables (campos editables y de solo lectura)
             document.getElementById('ot-edit-lider-delivery').value = ot.lider_delivery || '';
-            document.getElementById('ot-edit-responsable-proyecto').value = ot.responsable_proyecto || '';
-            document.getElementById('ot-edit-cbt-responsable').value = ot.cbt_responsable || '';
+            document.getElementById('ot-edit-responsable-proyecto').value = ot.responsable_proyecto || 'Sin responsable';
+            document.getElementById('ot-edit-cbt-responsable').value = ot.cbt_responsable || 'Sin CBT';
             document.getElementById('ot-edit-proveedor').value = ot.proveedor || '';
             
             // Montos e indicadores
@@ -5130,6 +5322,68 @@ document.addEventListener('DOMContentLoaded', async () => {
             Swal.fire({ icon: 'error', title: 'Error al cargar OT', text: err.message });
         }
     };
+
+    // Cargar proyectos disponibles para cambiar relación OT-Proyecto
+    async function loadProjectsForOTRelation(currentProjectId) {
+        try {
+            const response = await fetch(window.getApiUrl ? window.getApiUrl('/api/projects') : '/api/projects');
+            if (!response.ok) throw new Error('Error al cargar proyectos');
+            
+            const projects = await response.json();
+            const selector = document.getElementById('ot-edit-project-relation');
+            
+            // Limpiar opciones existentes excepto la primera
+            selector.innerHTML = '<option value="">Mantener proyecto actual</option>';
+            
+            // Agregar proyectos al selector
+            projects.forEach(project => {
+                const option = document.createElement('option');
+                option.value = project.id;
+                option.textContent = `${project.name}${project.celula_name ? ' (' + project.celula_name + ')' : ''}`;
+                
+                // Guardar datos del proyecto en el option para acceso rápido
+                option.dataset.projectName = project.name;
+                option.dataset.celulaName = project.celula_name || 'Sin célula';
+                option.dataset.responsable = project.project_manager || 'Sin responsable';
+                option.dataset.cbt = project.cbt_responsible || 'Sin CBT';
+                
+                // Marcar el proyecto actual como seleccionado
+                if (project.id == currentProjectId) {
+                    option.selected = true;
+                    option.textContent = `✓ ${option.textContent} (actual)`;
+                }
+                
+                selector.appendChild(option);
+            });
+            
+            console.log(`✅ Cargados ${projects.length} proyectos para selector de relación`);
+        } catch (err) {
+            console.error('Error cargando proyectos para relación:', err);
+            Swal.fire({
+                icon: 'warning',
+                title: 'Advertencia',
+                text: 'No se pudieron cargar los proyectos disponibles. El selector de relación estará deshabilitado.',
+                timer: 3000
+            });
+        }
+    }
+
+    // Event listener para cambio de proyecto - actualizar campos de solo lectura
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.id === 'ot-edit-project-relation') {
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            
+            if (selectedOption.value) {
+                // Actualizar campos de solo lectura con datos del proyecto seleccionado
+                document.getElementById('ot-edit-project-display').value = selectedOption.dataset.projectName || 'Sin nombre';
+                document.getElementById('ot-edit-celula-display').value = selectedOption.dataset.celulaName || 'Sin célula';
+                document.getElementById('ot-edit-responsable-proyecto').value = selectedOption.dataset.responsable || 'Sin responsable';
+                document.getElementById('ot-edit-cbt-responsable').value = selectedOption.dataset.cbt || 'Sin CBT';
+                
+                console.log('✅ Campos de proyecto actualizados:', selectedOption.dataset.projectName);
+            }
+        }
+    });
 
     // Formatear fecha para input date (YYYY-MM-DD)
     function formatDateForInput(dateValue) {
@@ -5275,6 +5529,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 submitBtn.disabled = true;
                 submitBtn.textContent = '⏳ Guardando...';
                 
+                // Verificar si cambió el proyecto
+                const newProjectId = document.getElementById('ot-edit-project-relation').value;
+                const currentOT = allOrdersOfWork.find(o => o.id == otId);
+                const projectChanged = newProjectId && newProjectId != currentOT?.project_id;
+                
+                // 1. Actualizar datos de la OT
                 const response = await fetch(
                     window.getApiUrl ? window.getApiUrl(`/api/orders-of-work/${otId}`) : `/api/orders-of-work/${otId}`,
                     {
@@ -5289,7 +5549,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                     throw new Error(errorData.error || 'Error al actualizar OT');
                 }
                 
-                const updatedOT = await response.json();
+                let updatedOT = await response.json();
+                
+                // 2. Si cambió el proyecto, actualizar relación
+                if (projectChanged) {
+                    console.log(`🔄 Actualizando relación: OT ${otId} → Proyecto ${newProjectId}`);
+                    
+                    const relationResponse = await fetch(
+                        window.getApiUrl 
+                            ? window.getApiUrl(`/api/orders-of-work/${otId}/project-relation`)
+                            : `/api/orders-of-work/${otId}/project-relation`,
+                        {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ projectId: newProjectId })
+                        }
+                    );
+                    
+                    if (!relationResponse.ok) {
+                        const errorData = await relationResponse.json();
+                        throw new Error(errorData.error || 'Error al actualizar relación proyecto-OT');
+                    }
+                    
+                    updatedOT = await relationResponse.json();
+                    console.log('✅ Relación proyecto-OT actualizada');
+                }
                 
                 // Mostrar confirmación con información de la OT actualizada
                 await Swal.fire({ 
@@ -5303,6 +5587,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <p style="margin:8px 0;font-size:15px;color:#1f2937;">
                                     <strong>📊 Estado:</strong> <span style="color:#059669;font-weight:600">${updates.status}</span>
                                 </p>
+                                ${projectChanged ? `
+                                    <p style="margin:8px 0;font-size:15px;color:#1f2937;">
+                                        <strong>🔄 Proyecto:</strong> <span style="color:#2563eb;font-weight:600">${updatedOT.project_name || 'Actualizado'}</span>
+                                    </p>
+                                ` : ''}
                                 ${updates.description ? `
                                     <p style="margin:8px 0;font-size:15px;color:#1f2937;">
                                         <strong>📝 Descripción:</strong> ${updates.description.substring(0, 50)}${updates.description.length > 50 ? '...' : ''}
@@ -5536,4 +5825,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }, true); // Usar capture phase para mayor prioridad
 });
-
+                

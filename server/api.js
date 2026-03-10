@@ -2687,7 +2687,41 @@ app.put('/api/orders-of-work/:id', async (req, res) => {
     }
     
     console.log('✅ OT updated successfully:', result.rows[0].id);
-    res.json(result.rows[0]);
+    
+    // Obtener el registro completo con JOINs (igual que GET /api/orders-of-work)
+    // para que el frontend pueda actualizar la tabla correctamente
+    const fullRecordQuery = `
+      SELECT 
+        ow.*,
+        p.id as project_id,
+        p.name as project_name,
+        p.project_manager as responsable_proyecto,
+        p.cbt_responsible as cbt_responsable,
+        p.start_date as project_start_date,
+        p.end_date as project_end_date,
+        mc.item as celula_name,
+        por.id as relation_id,
+        por.created_at as relation_created_at
+      FROM orders_of_work ow
+      LEFT JOIN project_ot_relations por ON ow.id = por.ot_id
+      LEFT JOIN projects p ON por.project_id = p.id
+      LEFT JOIN mastercode mc ON p.celula_id = mc.id AND mc.lista = 'Celulas'
+      WHERE ow.id = $1
+      ORDER BY p.name
+    `;
+    
+    const fullRecordResult = await db.query(fullRecordQuery, [id]);
+    
+    // Si hay múltiples proyectos asociados, devolver todos
+    // Si no hay proyectos, devolver solo los datos de la OT
+    const responseData = fullRecordResult.rows.length > 0 
+      ? fullRecordResult.rows 
+      : [result.rows[0]];
+    
+    console.log('✅ Returning full record with JOINs:', responseData.length, 'rows');
+    
+    // Si solo hay una relación, devolver objeto único; si hay múltiples, devolver array
+    res.json(responseData.length === 1 ? responseData[0] : responseData);
   } catch (err) {
     console.error('❌ Error updating order of work:', err);
     console.error('Query attempted:', setFields.join(', '));
@@ -2761,6 +2795,75 @@ app.get('/api/projects/:projectId/orders-of-work', async (req, res) => {
   } catch (err) {
     console.error('Error fetching project orders:', err);
     res.status(500).json({ error: 'Error fetching project orders' });
+  }
+});
+
+// Actualizar relación proyecto-OT
+// Cambia el proyecto al que está asociada una OT específica
+app.put('/api/orders-of-work/:otId/project-relation', async (req, res) => {
+  const { otId } = req.params;
+  const { projectId } = req.body;
+  
+  if (!projectId) {
+    return res.status(400).json({ error: 'Se requiere projectId' });
+  }
+  
+  try {
+    console.log(`🔄 Actualizando relación OT ${otId} → Proyecto ${projectId}`);
+    
+    // Verificar que la OT existe
+    const otCheck = await db.query('SELECT id FROM orders_of_work WHERE id = $1', [otId]);
+    if (otCheck.rowCount === 0) {
+      return res.status(404).json({ error: 'OT no encontrada' });
+    }
+    
+    // Verificar que el proyecto existe
+    const projectCheck = await db.query('SELECT id FROM projects WHERE id = $1', [projectId]);
+    if (projectCheck.rowCount === 0) {
+      return res.status(404).json({ error: 'Proyecto no encontrado' });
+    }
+    
+    // Eliminar relaciones existentes de esta OT
+    await db.query('DELETE FROM project_ot_relations WHERE ot_id = $1', [otId]);
+    console.log(`✓ Eliminadas relaciones anteriores de OT ${otId}`);
+    
+    // Crear nueva relación
+    await db.query(
+      'INSERT INTO project_ot_relations (project_id, ot_id) VALUES ($1, $2)',
+      [projectId, otId]
+    );
+    console.log(`✓ Creada nueva relación: OT ${otId} → Proyecto ${projectId}`);
+    
+    // Devolver el registro completo actualizado con JOINs
+    const fullRecordQuery = `
+      SELECT 
+        ow.*,
+        p.id as project_id,
+        p.name as project_name,
+        p.project_manager as responsable_proyecto,
+        p.cbt_responsible as cbt_responsable,
+        p.start_date as project_start_date,
+        p.end_date as project_end_date,
+        mc.item as celula_name,
+        por.id as relation_id,
+        por.created_at as relation_created_at
+      FROM orders_of_work ow
+      LEFT JOIN project_ot_relations por ON ow.id = por.ot_id
+      LEFT JOIN projects p ON por.project_id = p.id
+      LEFT JOIN mastercode mc ON p.celula_id = mc.id AND mc.lista = 'Celulas'
+      WHERE ow.id = $1
+    `;
+    
+    const result = await db.query(fullRecordQuery, [otId]);
+    
+    console.log(`✅ Relación actualizada exitosamente para OT ${otId}`);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('❌ Error actualizando relación proyecto-OT:', err);
+    res.status(500).json({ 
+      error: 'Error actualizando relación proyecto-OT',
+      details: err.message 
+    });
   }
 });
 
