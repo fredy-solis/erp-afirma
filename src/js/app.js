@@ -2201,12 +2201,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (assignmentsContent) assignmentsContent.style.display = 'none';
         }
         
-        // Activar primera pestaña automáticamente con más tiempo para el modo editar
-        const delay = isEdit ? 300 : 100;
-        setTimeout(() => {
-            console.log('⏰ Activando pestaña general después de', delay, 'ms');
-            switchTab('general');
-        }, delay);
+        // Activar primera pestaña automáticamente
+        console.log('⏰ Activando pestaña general');
+        switchTab('general');
     }
 
     // Función para aplicar modo solo lectura DESPUÉS de poblar el formulario
@@ -2413,6 +2410,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Load employee contracts for HR tab
     async function loadEmployeeContracts(employeeId) {
+        console.log('💼 Cargando contratos para empleado:', employeeId);
         if (!employeeId) {
             document.getElementById('contracts-list').innerHTML = '<p><em>No hay contratos aún</em></p>';
             return;
@@ -2421,6 +2419,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const url = window.getApiUrl ? window.getApiUrl(`/api/employees-v2/${employeeId}/contracts`) : `/api/employees-v2/${employeeId}/contracts`;
             const contracts = await fetch(url).then(r => r.json());
+            console.log('✅ Contratos recibidos:', contracts);
             const contractsList = document.getElementById('contracts-list');
             
             if (contracts.length === 0) {
@@ -2428,6 +2427,40 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
+            // Poblar campos del formulario con el contrato activo
+            const activeContract = contracts.find(c => c.is_active);
+            if (activeContract) {
+                console.log('📄 Poblando campos con contrato activo:', activeContract);
+                const contractTypeField = document.getElementById('employee-contract-type');
+                const obraField = document.getElementById('employee-obra');
+                const contractSchemeField = document.getElementById('employee-contract-scheme');
+                const initialRateField = document.getElementById('employee-initial-rate');
+                const grossSalaryField = document.getElementById('employee-gross-salary');
+                const netSalaryField = document.getElementById('employee-net-salary');
+                const companyCostField = document.getElementById('employee-company-cost');
+                const hireDateField = document.getElementById('employee-hire-date');
+                const endDateField = document.getElementById('employee-end-date');
+                const terminationReasonField = document.getElementById('employee-termination-reason');
+                const rehireableField = document.getElementById('employee-rehireable');
+                
+                if (contractTypeField) contractTypeField.value = activeContract.contract_type_id || '';
+                if (obraField) obraField.value = activeContract.obra || '';
+                if (contractSchemeField) contractSchemeField.value = activeContract.contract_scheme_id || '';
+                if (initialRateField) initialRateField.value = activeContract.initial_rate || '';
+                if (grossSalaryField) grossSalaryField.value = activeContract.gross_monthly_salary || '';
+                if (netSalaryField) netSalaryField.value = activeContract.net_monthly_salary || '';
+                if (companyCostField) companyCostField.value = activeContract.company_cost || '';
+                if (hireDateField && activeContract.start_date) {
+                    hireDateField.value = activeContract.start_date.split('T')[0];
+                }
+                if (endDateField && activeContract.end_date) {
+                    endDateField.value = activeContract.end_date.split('T')[0];
+                }
+                if (terminationReasonField) terminationReasonField.value = activeContract.termination_reason || '';
+                if (rehireableField) rehireableField.checked = activeContract.is_rehireable || false;
+            }
+
+            // Mostrar historial de contratos
             contractsList.innerHTML = contracts.map(contract => {
                 const isActive = contract.is_active;
                 const startDate = contract.start_date ? new Date(contract.start_date).toLocaleDateString() : 'N/A';
@@ -2451,24 +2484,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (error) {
             console.error('Error loading contracts:', error);
             document.getElementById('contracts-list').innerHTML = '<p><em>Error cargando historial de contratos</em></p>';
-        }
-    }
-
-    // Load employee banking info for HR tab
-    async function loadEmployeeBanking(employeeId) {
-        if (!employeeId) return;
-
-        try {
-            const url = window.getApiUrl ? window.getApiUrl(`/api/employees-v2/${employeeId}/banking`) : `/api/employees-v2/${employeeId}/banking`;
-            const banking = await fetch(url).then(r => r.json());
-            if (banking) {
-                document.getElementById('employee-bank-name').value = banking.bank_name || '';
-                document.getElementById('employee-account-holder').value = banking.account_holder_name || '';
-                document.getElementById('employee-account-number').value = banking.account_number || '';
-                document.getElementById('employee-clabe').value = banking.clabe_interbancaria || '';
-            }
-        } catch (error) {
-            console.error('Error loading banking info:', error);
         }
     }
 
@@ -2880,6 +2895,72 @@ document.addEventListener('DOMContentLoaded', async () => {
         const terminationReason = document.getElementById('employee-termination-reason').value;
         const rehireable = document.getElementById('employee-rehireable').checked;
 
+        // Validar campos obligatorios
+        if (!first || first.trim() === '') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Nombre requerido',
+                text: 'El nombre es obligatorio'
+            });
+            return;
+        }
+
+        if (!last || last.trim() === '') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Apellido requerido',
+                text: 'El apellido es obligatorio'
+            });
+            return;
+        }
+
+        if (!positionId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Posición requerida',
+                text: 'Debes seleccionar una posición'
+            });
+            return;
+        }
+
+        if (!areaId) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Área requerida',
+                text: 'Debes seleccionar un área'
+            });
+            return;
+        }
+
+        if (!status) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Status requerido',
+                text: 'Debes seleccionar un status'
+            });
+            return;
+        }
+
+        if (!email || email.trim() === '') {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Email requerido',
+                text: 'El email es obligatorio'
+            });
+            return;
+        }
+
+        // Validar formato de email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Email inválido',
+                text: 'Por favor ingresa un email válido'
+            });
+            return;
+        }
+
         // Validar que nombre y apellido solo contengan letras
         const nameRegex = /^[A-Za-zñÑáéíóúÁÉÍÓÚ\s]+$/;
         if (!nameRegex.test(first)) {
@@ -3003,11 +3084,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Save banking info if provided
             if (bankName || accountHolder || accountNumber || clabe) {
                 const bankingData = {
-                    bank_name: bankName,
-                    account_holder_name: accountHolder,
-                    account_number: accountNumber,
-                    clabe_interbancaria: clabe
+                    bank_name: bankName || '',
+                    account_holder_name: accountHolder || '',
+                    account_number: accountNumber || '',
+                    clabe_interbancaria: clabe || ''
                 };
+                console.log('📤 Enviando datos bancarios:', bankingData);
                 try {
                     const url = window.getApiUrl ? window.getApiUrl(`/api/employees-v2/${employeeId}/banking`) : `/api/employees-v2/${employeeId}/banking`;
                     const bankingRes = await fetch(url, {
@@ -3015,7 +3097,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(bankingData)
                     });
-                    if (!bankingRes.ok) throw new Error('Error guardando datos bancarios');
+                    if (!bankingRes.ok) {
+                        const errorData = await bankingRes.json().catch(() => ({}));
+                        console.error('❌ Error response:', errorData);
+                        throw new Error(errorData.details || 'Error guardando datos bancarios');
+                    }
+                    console.log('✅ Datos bancarios guardados correctamente');
+                    
+                    // Recargar los datos bancarios para mostrarlos en el formulario
+                    await window.loadEmployeeBanking(employeeId);
+                    
                     Swal.fire({
                         icon: 'success',
                         title: 'Datos bancarios guardados',
@@ -3056,6 +3147,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                         body: JSON.stringify(contractData)
                     });
                     if (!contractRes.ok) throw new Error('Error guardando contrato');
+                    console.log('✅ Contrato guardado correctamente');
+                    
+                    // Recargar los contratos para mostrarlos en el formulario
+                    await window.loadEmployeeContracts(employeeId);
+                    
                     Swal.fire({
                         icon: 'success',
                         title: 'Contrato guardado',
@@ -3365,6 +3461,87 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.log('📊 Cargando asignaciones del empleado:', employeeId);
                 window.loadEmployeeAssignments(employeeId);
             }
+        } else if (tabName === 'hr') {
+            const employeeId = document.getElementById('employee-id')?.value;
+            if (employeeId) {
+                console.log('💼 Cargando información de Recursos Humanos para empleado:', employeeId);
+                
+                // Cargar datos bancarios y contratos
+                const loadPromises = [];
+                if (window.loadEmployeeBanking) {
+                    console.log('🏦 Cargando datos bancarios...');
+                    loadPromises.push(window.loadEmployeeBanking(employeeId));
+                }
+                if (window.loadEmployeeContracts) {
+                    console.log('📄 Cargando contratos...');
+                    loadPromises.push(window.loadEmployeeContracts(employeeId));
+                }
+                
+                // Si está en modo solo lectura, re-aplicar después de cargar los datos
+                const employeeModal = document.getElementById('employee-modal');
+                const isReadOnly = employeeModal?.dataset.readOnly === 'true';
+                if (isReadOnly) {
+                    Promise.all(loadPromises).then(() => {
+                        console.log('✅ Datos de RH cargados, re-aplicando modo solo lectura...');
+                        setTimeout(() => {
+                            // Re-aplicar modo solo lectura solo a los campos de la pestaña HR
+                            const hrTab = document.getElementById('tab-hr');
+                            if (hrTab) {
+                                const selects = hrTab.querySelectorAll('select');
+                                selects.forEach(select => {
+                                    // Si ya tiene un div de solo lectura, actualizarlo
+                                    const existingReadOnly = select.parentNode.querySelector('.readonly-field[data-original-select-id="' + select.id + '"]');
+                                    if (existingReadOnly) {
+                                        const selectedOption = select.options[select.selectedIndex];
+                                        const displayValue = selectedOption && selectedOption.value ? selectedOption.textContent : 'Sin datos';
+                                        existingReadOnly.textContent = displayValue;
+                                    } else {
+                                        // Crear nuevo div de solo lectura
+                                        const selectedOption = select.options[select.selectedIndex];
+                                        const displayValue = selectedOption && selectedOption.value ? selectedOption.textContent : 'Sin datos';
+                                        const readOnlyDiv = document.createElement('div');
+                                        readOnlyDiv.className = 'readonly-field';
+                                        readOnlyDiv.textContent = displayValue;
+                                        readOnlyDiv.style.cssText = 'padding:12px; background:#f5f5f5; border:1px solid #e5e7eb; border-radius:6px; color:#000000; min-height:44px; display:flex; align-items:center;';
+                                        readOnlyDiv.dataset.originalSelectId = select.id;
+                                        select.style.display = 'none';
+                                        select.parentNode.insertBefore(readOnlyDiv, select.nextSibling);
+                                    }
+                                });
+                                
+                                const inputs = hrTab.querySelectorAll('input:not([type="checkbox"]):not([type="file"]), textarea');
+                                inputs.forEach(input => {
+                                    const value = input.value?.trim();
+                                    const existingReadOnly = input.parentNode.querySelector('.readonly-field[data-original-input-id="' + input.id + '"]');
+                                    
+                                    if (!value) {
+                                        if (existingReadOnly) {
+                                            existingReadOnly.textContent = 'Sin datos';
+                                        } else {
+                                            const readOnlyDiv = document.createElement('div');
+                                            readOnlyDiv.className = 'readonly-field';
+                                            readOnlyDiv.textContent = 'Sin datos';
+                                            readOnlyDiv.style.cssText = 'padding:12px; background:#f5f5f5; border:1px solid #e5e7eb; border-radius:6px; color:#999999; min-height:44px; display:flex; align-items:center; font-style:italic;';
+                                            readOnlyDiv.dataset.originalInputId = input.id;
+                                            input.style.display = 'none';
+                                            input.parentNode.insertBefore(readOnlyDiv, input.nextSibling);
+                                        }
+                                    } else {
+                                        if (existingReadOnly) {
+                                            existingReadOnly.remove();
+                                        }
+                                        input.disabled = true;
+                                        input.style.color = '#000000';
+                                        input.style.opacity = '1';
+                                        input.style.backgroundColor = '#f5f5f5';
+                                        input.style.display = '';
+                                    }
+                                });
+                            }
+                        }, 100);
+                    });
+                }
+            }
         } else if (tabName === 'project-assignments') {
             const projectId = document.getElementById('project-id')?.value;
             if (projectId && window.loadProjectAssignments) {
@@ -3387,35 +3564,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     // ========== EMPLOYEE DATA LOADING FUNCTIONS ==========
-    async function loadEmployeeContracts(employeeId) {
-        console.log('💼 Cargando contratos para empleado:', employeeId);
-        try {
-            const url = window.getApiUrl ? window.getApiUrl(`/api/employees-v2/${employeeId}/contracts`) : `/api/employees-v2/${employeeId}/contracts`;
-            const response = await fetch(url);
-            if (!response.ok) {
-                console.warn('⚠️ No se pudieron cargar los contratos');
-                return;
-            }
-            const contracts = await response.json();
-            
-            // Update contracts list in the UI
-            const contractsList = document.getElementById('contracts-list');
-            if (contractsList && contracts.length > 0) {
-                contractsList.innerHTML = contracts.map(contract => `
-                    <div class="contract-item ${contract.is_current ? 'contract-active' : ''}">
-                        <h5>${contract.position_name || 'Sin posición'}</h5>
-                        <p><strong>Periodo:</strong> ${contract.start_date} - ${contract.end_date || 'Actual'}</p>
-                        <p><strong>Salario:</strong> $${contract.gross_salary || 'No especificado'}</p>
-                        <p><strong>Estado:</strong> ${contract.is_current ? 'Activo' : 'Inactivo'}</p>
-                    </div>
-                `).join('');
-            } else if (contractsList) {
-                contractsList.innerHTML = '<p><em>No hay contratos registrados</em></p>';
-            }
-        } catch (error) {
-            console.error('❌ Error cargando contratos:', error);
-        }
-    }
     
     async function loadEmployeeBanking(employeeId) {
         console.log('🏦 Cargando información bancaria para empleado:', employeeId);
@@ -3427,6 +3575,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             const banking = await response.json();
+            console.log('✅ Datos bancarios recibidos:', banking);
             
             // Update banking fields if they exist
             if (banking) {
@@ -3436,9 +3585,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const clabeField = document.getElementById('employee-clabe');
                 
                 if (bankNameField) bankNameField.value = banking.bank_name || '';
-                if (accountHolderField) accountHolderField.value = banking.account_holder || '';
+                if (accountHolderField) accountHolderField.value = banking.account_holder_name || '';
                 if (accountNumberField) accountNumberField.value = banking.account_number || '';
-                if (clabeField) clabeField.value = banking.clabe || '';
+                if (clabeField) clabeField.value = banking.clabe_interbancaria || '';
+                
+                console.log('✅ Campos bancarios poblados correctamente');
             }
         } catch (error) {
             console.error('❌ Error cargando información bancaria:', error);
@@ -3550,17 +3701,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const employees = await window.fetchEmployees();
                 const emp = employees.find(x=> String(x.id) === String(id));
                 if (emp) {
-                    await openModal(true, true); // Abre modal en modo solo lectura
-                    setTimeout(() => {
-                        window.populateForm(emp);
-                        // Aplicar modo solo lectura DESPUÉS de poblar el formulario
-                        setTimeout(() => {
-                            window.applyReadOnlyMode();
-                        }, 100);
-                        // Cambiar a tab de asignaciones si existe historial
-                        const assignmentsTab = document.querySelector('.tab-button[data-tab="asignaciones"]');
-                        if (assignmentsTab) assignmentsTab.click();
-                    }, 200);
+                    // Flujo secuencial con promesas
+                    await openModal(true, true); // Carga catálogos
+                    
+                    // Poblar formulario (espera a que termine)
+                    await window.populateForm(emp);
+                    
+                    // Cargar datos de Recursos Humanos en paralelo
+                    if (window.loadEmployeeBanking && window.loadEmployeeContracts) {
+                        console.log('💼 Cargando datos de RH para modo VER...');
+                        await Promise.all([
+                            window.loadEmployeeBanking(emp.id),
+                            window.loadEmployeeContracts(emp.id)
+                        ]);
+                        console.log('✅ Datos de RH cargados en modo VER');
+                    }
+                    
+                    // Aplicar modo solo lectura DESPUÉS de que todo esté cargado
+                    window.applyReadOnlyMode();
+                    
+                    // Cambiar a tab de asignaciones
+                    const assignmentsTab = document.querySelector('.tab-button[data-tab="asignaciones"]');
+                    if (assignmentsTab) assignmentsTab.click();
                 }
                 return;
             }
@@ -3570,17 +3732,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const employees = await window.fetchEmployees();
                 const emp = employees.find(x=> String(x.id) === String(id));
                 if (emp) {
-                    await openModal(true); // Abre el modal y espera catálogos
-                    // Espera a que los catálogos estén listos antes de poblar el formulario
-                    setTimeout(() => {
-                        window.populateForm(emp);
-                        // Re-verificar que los event listeners funcionen después de populate
-                        const modal = document.getElementById('employee-modal');
-                        const buttons = modal.querySelectorAll('.tab-button');
-                        buttons.forEach((btn, index) => {
-                            console.log(`  Botón ${index + 1}: ${btn.textContent.trim()} - data-tab: ${btn.getAttribute('data-tab')}`);
-                        });
-                    }, 200);
+                    // Flujo secuencial con promesas
+                    await openModal(true); // Carga catálogos
+                    
+                    // Poblar formulario (espera a que termine)
+                    await window.populateForm(emp);
+                    
+                    // Cargar datos de Recursos Humanos en paralelo
+                    if (window.loadEmployeeBanking && window.loadEmployeeContracts) {
+                        console.log('💼 Cargando datos de RH para modo EDITAR...');
+                        await Promise.all([
+                            window.loadEmployeeBanking(emp.id),
+                            window.loadEmployeeContracts(emp.id)
+                        ]);
+                        console.log('✅ Datos de RH cargados en modo EDITAR');
+                    }
+                    
+                    // Verificar event listeners
+                    const modal = document.getElementById('employee-modal');
+                    const buttons = modal.querySelectorAll('.tab-button');
+                    buttons.forEach((btn, index) => {
+                        console.log(`  Botón ${index + 1}: ${btn.textContent.trim()} - data-tab: ${btn.getAttribute('data-tab')}`);
+                    });
                 }
                 return;
             }

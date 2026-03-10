@@ -1897,23 +1897,70 @@ app.get('/api/employees-v2/:id/banking', async (req, res) => {
 app.post('/api/employees-v2/:id/banking', async (req, res) => {
   const id = req.params.id;
   const { bank_name, account_holder_name, account_number, clabe_interbancaria } = req.body;
+  
+  console.log('📥 Datos bancarios recibidos:', {
+    employee_id: id,
+    bank_name,
+    account_holder_name,
+    account_number,
+    clabe_interbancaria,
+    body: req.body
+  });
+  
   try {
-    // Deactivate existing banking info
-    await db.query(
-      'UPDATE employee_banking_info SET is_active = false WHERE employee_id = $1',
-      [id]
-    );
+    // Validar que tengamos al menos algún dato
+    if (!bank_name && !account_holder_name && !account_number && !clabe_interbancaria) {
+      return res.status(400).json({ 
+        error: 'No banking information provided',
+        details: 'Al menos un campo bancario debe ser proporcionado'
+      });
+    }
+
+    // Usar transacción para garantizar atomicidad
+    const client = await db.pool.connect();
     
-    // Insert new banking info
-    const result = await db.query(
-      `INSERT INTO employee_banking_info (employee_id, bank_name, account_holder_name, account_number, clabe_interbancaria)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [id, bank_name, account_holder_name, account_number, clabe_interbancaria]
-    );
-    res.status(201).json(result.rows[0]);
+    try {
+      await client.query('BEGIN');
+      
+      console.log('🔄 Desactivando cuentas previas para empleado:', id);
+      // Desactivar todas las cuentas bancarias existentes
+      const updateResult = await client.query(
+        'UPDATE employee_banking_info SET is_active = false WHERE employee_id = $1 AND is_active = true',
+        [id]
+      );
+      console.log('✅ Desactivadas:', updateResult.rowCount, 'cuentas');
+      
+      console.log('💾 Insertando nueva cuenta bancaria...');
+      // Insertar nueva información bancaria
+      const result = await client.query(
+        `INSERT INTO employee_banking_info (employee_id, bank_name, account_holder_name, account_number, clabe_interbancaria, is_active)
+         VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
+        [id, bank_name || '', account_holder_name || '', account_number || '', clabe_interbancaria || '']
+      );
+      console.log('✅ Cuenta bancaria guardada:', result.rows[0]);
+      
+      await client.query('COMMIT');
+      client.release();
+      
+      res.status(201).json(result.rows[0]);
+    } catch (err) {
+      console.error('❌ Error en transacción:', err);
+      await client.query('ROLLBACK');
+      client.release();
+      throw err;
+    }
   } catch (err) {
-    console.error('Error saving banking info', err);
-    res.status(500).json({ error: 'Error saving banking info' });
+    console.error('Error saving banking info:', err);
+    console.error('Error details:', {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      constraint: err.constraint
+    });
+    res.status(500).json({ 
+      error: 'Error saving banking info',
+      details: err.message 
+    });
   }
 });
 
@@ -2095,17 +2142,20 @@ app.post('/api/employees-v2/:id/contracts', async (req, res) => {
     gross_monthly_salary, net_monthly_salary, company_cost,
     start_date, end_date, termination_reason, is_rehireable
   } = req.body;
-  
+
+  const client = await db.pool.connect();
   try {
-    // Si se marca como activo, desactivar contratos previos
+    await client.query('BEGIN');
+
+    // Si se marca como activo, desactivar contratos previos ACTIVOS
     if (req.body.is_active) {
-      await db.query(
-        'UPDATE employee_contracts SET is_active = false WHERE employee_id = $1',
+      await client.query(
+        'UPDATE employee_contracts SET is_active = false WHERE employee_id = $1 AND is_active = true',
         [employee_id]
       );
     }
 
-    const result = await db.query(
+    const result = await client.query(
       `INSERT INTO employee_contracts 
        (employee_id, contract_type_id, obra, contract_scheme_id, initial_rate, 
         gross_monthly_salary, net_monthly_salary, company_cost, start_date, 
@@ -2116,10 +2166,23 @@ app.post('/api/employees-v2/:id/contracts', async (req, res) => {
        gross_monthly_salary, net_monthly_salary, company_cost, start_date,
        end_date, termination_reason, is_rehireable, req.body.is_active || false]
     );
+    
+    await client.query('COMMIT');
+    client.release();
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error('Error creating contract', err);
-    res.status(500).json({ error: 'Error creating contract' });
+    await client.query('ROLLBACK');
+    client.release();
+    console.error('Error creating contract:', {
+      message: err.message,
+      code: err.code,
+      detail: err.detail,
+      constraint: err.constraint
+    });
+    res.status(500).json({ 
+      error: 'Error creating contract',
+      details: err.message 
+    });
   }
 });
 

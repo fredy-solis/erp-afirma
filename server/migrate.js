@@ -51,7 +51,9 @@ async function runMigrations() {
       '036_create_commercial_contacts.sql',
       '037_add_celula_area_file_to_job_openings.sql',
       '038_add_salary_expectation_to_candidates.sql',
-      '039_rename_role_to_role_name.sql'
+      '039_rename_role_to_role_name.sql',
+      '040_fix_banking_unique_constraint.sql',
+      '041_grant_all_permissions.sql'
     ];
 
     for (const migration of migrations) {
