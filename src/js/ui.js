@@ -372,45 +372,41 @@ async function populateForm(employee){
     document.getElementById('employee-phone').value = employee.phone || '';
     document.getElementById('employee-personal-phone').value = employee.personal_phone || '';
     
-    // Use appropriate fields for dropdowns vs text inputs
-    // Position is now a select dropdown, so use position_id
-    // Note: entity will be set in setTimeout below with other dropdowns
+    // Establecer valores de dropdowns (los catálogos ya están cargados por ensureCatalogsLoaded)
+    const positionSelect = document.getElementById('employee-position');
+    const entitySelect = document.getElementById('employee-entity');
+    const areaSelect = document.getElementById('employee-area');
+    const projectSelect = document.getElementById('employee-project');
+    const cellSelect = document.getElementById('employee-cell');
     
-    // Establecer valores con un pequeño delay para asegurar que los options están cargados
-    setTimeout(() => {
-        const positionSelect = document.getElementById('employee-position');
-        const entitySelect = document.getElementById('employee-entity');
-        const positionValue = employee.position_id || '';
-        const entityValue = employee.entity_id || '';
-        
-        console.log('🔍 Setting dropdowns:', {
-            position_id: positionValue,
-            entity_id: entityValue,
-            position_options: positionSelect ? positionSelect.options.length : 0,
-            entity_options: entitySelect ? entitySelect.options.length : 0
-        });
-        
-        if (positionSelect) {
-            positionSelect.value = positionValue;
-            console.log('✅ Position value set to:', positionSelect.value);
-        }
-        
-        if (entitySelect) {
-            entitySelect.value = entityValue;
-            console.log('✅ Entity value set to:', entitySelect.value);
-        }
-        
-        document.getElementById('employee-area').value = employee.area_id || '';
-        document.getElementById('employee-project').value = employee.project_id || '';
-        document.getElementById('employee-cell').value = employee.cell_id || '';
-        console.log('🔄 Valores establecidos:', {
-            position_id: employee.position_id,
-            entity_id: employee.entity_id,
-            area_id: employee.area_id,
-            project_id: employee.project_id,
-            cell_id: employee.cell_id
-        });
-    }, 100);
+    console.log('🔍 Setting dropdowns:', {
+        position_id: employee.position_id || '',
+        entity_id: employee.entity_id || '',
+        position_options: positionSelect ? positionSelect.options.length : 0,
+        entity_options: entitySelect ? entitySelect.options.length : 0
+    });
+    
+    if (positionSelect) {
+        positionSelect.value = employee.position_id || '';
+        console.log('✅ Position value set to:', positionSelect.value);
+    }
+    
+    if (entitySelect) {
+        entitySelect.value = employee.entity_id || '';
+        console.log('✅ Entity value set to:', entitySelect.value);
+    }
+    
+    if (areaSelect) areaSelect.value = employee.area_id || '';
+    if (projectSelect) projectSelect.value = employee.project_id || '';
+    if (cellSelect) cellSelect.value = employee.cell_id || '';
+    
+    console.log('🔄 Valores establecidos:', {
+        position_id: employee.position_id,
+        entity_id: employee.entity_id,
+        area_id: employee.area_id,
+        project_id: employee.project_id,
+        cell_id: employee.cell_id
+    });
     
     document.getElementById('employee-status').value = employee.status || 'Activo';
     

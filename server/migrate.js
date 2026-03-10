@@ -52,9 +52,10 @@ async function runMigrations() {
       '037_add_celula_area_file_to_job_openings.sql',
       '038_add_salary_expectation_to_candidates.sql',
       '039_rename_role_to_role_name.sql',
-      '040_grant_all_permissions.sql',
+      '040_fix_banking_unique_constraint.sql',
       '041_add_deleted_status_to_candidates.sql',
-      '042_normalize_ot_status_values.sql'
+      '042_normalize_ot_status_values.sql',
+      '043_grant_all_permissions.sql'
     ];
 
     for (const migration of migrations) {
