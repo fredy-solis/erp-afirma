@@ -580,7 +580,7 @@ app.post('/api/candidates', async (req, res) => {
 
   // validate email if provided
   if (email) {
-    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRe.test(String(email))) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
@@ -608,7 +608,7 @@ app.put('/api/candidates/:id', async (req, res) => {
   
   // validate email if provided
   if (email) {
-    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRe.test(String(email))) {
       return res.status(400).json({ error: 'Invalid email format' });
     }
@@ -860,7 +860,7 @@ app.post('/api/upload-employees', upload.single('file'), async (req, res) => {
 
         // Validate email format if provided
         if (email) {
-          const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
           if (!emailRe.test(String(email))) {
             errors.push({ row: i + 1, error: `Invalid email: ${email}` });
             continue;
@@ -1043,7 +1043,7 @@ app.post('/api/upload-candidates', upload.single('file'), async (req, res) => {
 
         // Validate email format if provided
         if (email) {
-          const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
           if (!emailRe.test(String(email).trim())) {
             errors.push({ row: i + 1, error: `Invalid email: ${email}` });
             continue;
@@ -1457,7 +1457,7 @@ app.post('/api/employees-v2', async (req, res) => {
 
   // Validate email format
   if (email) {
-    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     // Use validator for stricter checks; fallback to your regex if preferred
     if (!emailRe.test(String(email))) {
       return res.status(400).json({ error: 'Invalid email format' });
@@ -1706,7 +1706,7 @@ app.put('/api/employees-v2/:id', async (req, res) => {
   if (hireDateNorm && isFutureDate(hireDateNorm)) return res.status(400).json({ error: 'hire_date cannot be a future date' });
   const startDateNorm = normalizeDateInput(start_date);
   if (email) {
-    const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRe.test(String(email))) return res.status(400).json({ error: 'Invalid email format' });
   }
   try {

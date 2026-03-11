@@ -1760,7 +1760,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Validar formato de email
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(email)) {
             Swal.fire({
                 icon: 'warning',
@@ -3136,7 +3136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         // Validar formato de email
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(email)) {
             Swal.fire({
                 icon: 'warning',
@@ -3511,7 +3511,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // client-side email validation (if provided)
         if (email) {
-            const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            const emailRe = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
             if (!emailRe.test(String(email))) {
                 Swal.fire({
                     icon: 'warning',
