@@ -147,7 +147,7 @@ async function openAddCelulaModal() {
             const response = await fetch(window.getApiUrl('/api/mastercode/Celulas'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ item: newName })
+                body: JSON.stringify({ name: newName })
             });
             
             if (!response.ok) throw new Error('Error al crear célula');
