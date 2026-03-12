@@ -992,7 +992,7 @@ p, span, div,
 
 /* Inputs, textareas y selects en mayúsculas */
 input[type="text"],
-input[type="password"],
+/* input[type="password"],*/
 input[type="number"],
 input[type="tel"],
 input[type="date"],
